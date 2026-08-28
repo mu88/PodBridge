@@ -1,0 +1,272 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Net;
+using System.Text;
+using System.Xml.Linq;
+using CliWrap;
+using CliWrap.Buffered;
+using DotNet.Testcontainers.Builders;
+using DotNet.Testcontainers.Containers;
+using DotNet.Testcontainers.Networks;
+using FluentAssertions;
+using FluentAssertions.Web;
+using NUnit.Framework;
+using WireMock.Net.Testcontainers;
+
+namespace Tests.SystemTests;
+
+[Category("System")]
+public class PodBridgeSystemTests
+{
+    private const string FixtureShowId = "fixture-show";
+    private const string FixtureShowDisplayName = "System Test Fixture Show";
+    private const string SystemTestAuthUsername = "systemtestuser";
+    private const string SystemTestAuthPassword = "systemtestpass";
+
+    private CancellationTokenSource _cancellationTokenSource = null!;
+    private INetwork? _network;
+    private WireMockContainer? _wireMockContainer;
+    private IContainer? _podBridgeContainer;
+
+    [SetUp]
+    public void Setup()
+    {
+        _cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+    }
+
+    [TearDown]
+    public async Task TearDown()
+    {
+        await _cancellationTokenSource.CancelAsync();
+
+        // Cleanup must use its own token: the token above is deliberately cancelled to stop any
+        // in-flight test operations, but Testcontainers cleanup calls need a fresh, non-cancelled token.
+        using var cleanupCancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+
+        if (_podBridgeContainer != null)
+        {
+            await CleanupPodBridgeContainerAsync(_podBridgeContainer, cleanupCancellationTokenSource.Token);
+        }
+
+        if (_wireMockContainer != null)
+        {
+            await _wireMockContainer.DisposeAsync();
+        }
+
+        if (_network != null)
+        {
+            await _network.DisposeAsync();
+        }
+
+        _cancellationTokenSource.Dispose();
+    }
+
+    [Test]
+    public async Task AppRunningInDocker_ShouldSyncPodcastFromWireMockAndExposeRssFeed()
+    {
+        // Arrange
+        var imageTag = $"system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        await BuildDockerImageAsync(imageTag);
+
+        _network = new NetworkBuilder().Build();
+        await _network.CreateAsync(_cancellationTokenSource.Token);
+
+        _wireMockContainer = await StartWireMockContainerAsync();
+        _podBridgeContainer = await StartPodBridgeContainerAsync(imageTag, authEnabled: false);
+
+        using var httpClient = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
+
+        // Act - Wait for background worker to populate cache
+        using var podcastsResponse = await WaitForFeedToBePopulatedAsync(httpClient);
+        using var feedResponse = await httpClient.GetAsync($"/api/podcasts/{FixtureShowId}", _cancellationTokenSource.Token);
+
+        // Assert
+        podcastsResponse.Should().Be200Ok();
+        var podcastsJson = await podcastsResponse.Content.ReadAsStringAsync(_cancellationTokenSource.Token);
+        podcastsJson.Should().Contain(FixtureShowId).And.Contain(FixtureShowDisplayName);
+
+        feedResponse.Should().Be200Ok();
+        feedResponse.Content.Headers.ContentType?.MediaType.Should().Be("application/rss+xml");
+
+        var feedXml = await feedResponse.Content.ReadAsStringAsync(_cancellationTokenSource.Token);
+        var doc = XDocument.Parse(feedXml);
+        var channel = doc.Root!.Element("channel")!;
+        channel.Element("title")!.Value.Should().Be(FixtureShowDisplayName);
+
+        var items = channel.Elements("item").ToList();
+        items.Should().HaveCount(2);
+
+        // The RSS feed lists episodes newest-first (RssFeed.cs orders by PublishDate descending),
+        // so "Episode 2" (published later) appears before "Episode 1".
+        items[0].Element("title")!.Value.Should().Be("Episode 2: The Journey");
+        items[1].Element("title")!.Value.Should().Be("Episode 1: The Beginning");
+    }
+
+    [Test]
+    public async Task AppRunningInDocker_WithBasicAuthEnabled_ShouldEnforceAuthentication()
+    {
+        // Arrange
+        var imageTag = $"system-test-auth-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        await BuildDockerImageAsync(imageTag);
+
+        _network = new NetworkBuilder().Build();
+        await _network.CreateAsync(_cancellationTokenSource.Token);
+
+        _wireMockContainer = await StartWireMockContainerAsync();
+        _podBridgeContainer = await StartPodBridgeContainerAsync(imageTag, authEnabled: true);
+
+        using var httpClientWithoutAuth = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
+        using var httpClientWithAuth = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
+
+        var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes($"{SystemTestAuthUsername}:{SystemTestAuthPassword}"));
+        httpClientWithAuth.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", credentials);
+
+        // Act & Assert - /healthz should be accessible without auth
+        using var healthCheck = await httpClientWithoutAuth.GetAsync("healthz", _cancellationTokenSource.Token);
+        healthCheck.Should().Be200Ok();
+
+        // /podcasts without auth should return 401
+        using var podcastsWithoutAuth = await httpClientWithoutAuth.GetAsync("/api/podcasts", _cancellationTokenSource.Token);
+        podcastsWithoutAuth.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // /podcasts with auth should work
+        using var podcastsResponse = await WaitForFeedToBePopulatedAsync(httpClientWithAuth);
+        podcastsResponse.Should().Be200Ok();
+
+        // /feeds without auth should return 401
+        using var feedWithoutAuth = await httpClientWithoutAuth.GetAsync($"/api/podcasts/{FixtureShowId}", _cancellationTokenSource.Token);
+        feedWithoutAuth.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+
+        // /feeds with auth should work
+        using var feedWithAuth = await httpClientWithAuth.GetAsync($"/api/podcasts/{FixtureShowId}", _cancellationTokenSource.Token);
+        feedWithAuth.Should().Be200Ok();
+    }
+
+    private async Task<WireMockContainer> StartWireMockContainerAsync()
+    {
+        var mappingsDir = Path.Combine(AppContext.BaseDirectory, "testData", "system", "wiremock-mappings");
+        var container = new WireMockContainerBuilder()
+            .WithNetwork(_network)
+            .WithNetworkAliases("wiremock")
+            .WithMappings(mappingsDir)
+            .Build();
+
+        await container.StartAsync(_cancellationTokenSource.Token);
+        return container;
+    }
+
+    private async Task<IContainer> StartPodBridgeContainerAsync(string imageTag, bool authEnabled)
+    {
+        var imageName = $"podbridge-api:{imageTag}";
+        var builder = new ContainerBuilder(imageName)
+            .WithNetwork(_network)
+            .WithNetworkAliases("podbridge")
+            .WithPortBinding(8080, assignRandomHostPort: true)
+            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(8080).ForPath("/healthz")))
+            .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Production")
+            .WithEnvironment("PodBridge__RefreshIntervalMinutes", "1")
+            .WithEnvironment("PodBridge__RateLimitingPermitLimit", "100")
+            .WithEnvironment("PodBridge__RateLimitingWindowMinutes", "5")
+            .WithEnvironment("PodBridge__GraphQlEndpoint", "http://wiremock/graphql")
+            .WithEnvironment("PodBridge__Podcasts__0__PodcastId", FixtureShowId)
+            .WithEnvironment("PodBridge__Podcasts__0__ShowId", "fixture-show-id");
+
+        if (authEnabled)
+        {
+            builder = builder
+                .WithEnvironment("PodBridge__Auth__Enabled", "true")
+                .WithEnvironment("PodBridge__Auth__Username", SystemTestAuthUsername)
+                .WithEnvironment("PodBridge__Auth__Password", SystemTestAuthPassword);
+        }
+
+        var container = builder.Build();
+        await container.StartAsync(_cancellationTokenSource.Token);
+        return container;
+    }
+
+    // CliWrap's CommandTask<T> implements IDisposable and is correctly disposed via the using declaration
+    // below; the analyzer's dataflow incorrectly extends that "needs disposal" flag to the plain
+    // BufferedCommandResult value produced by awaiting it, which itself does not implement IDisposable.
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP001:Dispose created", Justification = "False positive: the actual disposable (CommandTask<T>) is disposed via 'using'; 'result' is a plain non-disposable BufferedCommandResult.")]
+    private async Task BuildDockerImageAsync(string imageTag)
+    {
+        // PodBridge intentionally has no Dockerfile (see README.md) - the image is built via the .NET SDK's
+        // built-in container publishing support (Microsoft.NET.Build.Containers, chiseled base image).
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
+        using var commandTask = Cli.Wrap("dotnet")
+            .WithArguments(new[] { "publish", "src/PodBridge.Api/PodBridge.Api.csproj", "-t:PublishContainer", $"-p:ContainerImageTag={imageTag}" })
+            .WithWorkingDirectory(repoRoot)
+            .WithValidation(CommandResultValidation.None)
+            .ExecuteBufferedAsync(_cancellationTokenSource.Token);
+        var result = await commandTask;
+
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidOperationException($"Container publish failed with exit code {result.ExitCode}. Output: {result.StandardOutput}. Error: {result.StandardError}");
+        }
+    }
+
+    private Uri GetPodBridgeBaseAddress()
+    {
+        if (_podBridgeContainer == null)
+        {
+            throw new InvalidOperationException("PodBridge container not started");
+        }
+
+        var port = _podBridgeContainer.GetMappedPublicPort(8080);
+        return new Uri($"http://localhost:{port}");
+    }
+
+    // The analyzer cannot follow the "return the live response, dispose it otherwise" control flow of this
+    // polling loop: on the success path ownership of the still-open response is transferred to the caller,
+    // on every other path it is disposed before the next attempt. Both are intentional, not a leak.
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP011:Don't return disposed instance", Justification = "Response is only disposed on the non-returning loop paths; the returned instance is always live.")]
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP017:Prefer using", Justification = "A using declaration would dispose the response before it can be returned to the caller on the success path.")]
+    private async Task<HttpResponseMessage> WaitForFeedToBePopulatedAsync(HttpClient httpClient)
+    {
+        const int maxAttempts = 30;
+        var delayBetweenAttempts = TimeSpan.FromSeconds(2);
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            var response = await httpClient.GetAsync("/api/podcasts", _cancellationTokenSource.Token);
+            if (response.IsSuccessStatusCode)
+            {
+                var content = await response.Content.ReadAsStringAsync(_cancellationTokenSource.Token);
+                if (content.Contains(FixtureShowDisplayName))
+                {
+                    return response; // Caller owns disposal
+                }
+            }
+
+            response.Dispose();
+
+            if (attempt < maxAttempts - 1)
+            {
+                await Task.Delay(delayBetweenAttempts, _cancellationTokenSource.Token);
+            }
+        }
+
+        throw new TimeoutException($"Feed not populated after {maxAttempts} attempts over {maxAttempts * delayBetweenAttempts.TotalSeconds} seconds");
+    }
+
+    private async Task CleanupPodBridgeContainerAsync(IContainer container, CancellationToken cancellationToken)
+    {
+        await container.StopAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")))
+        {
+            var imageName = container.Image.FullName;
+
+            try
+            {
+                await Cli.Wrap("docker")
+                    .WithArguments(new[] { "rmi", "--force", imageName })
+                    .ExecuteAsync(cancellationToken);
+            }
+            catch
+            {
+                // Best effort cleanup
+            }
+        }
+    }
+}

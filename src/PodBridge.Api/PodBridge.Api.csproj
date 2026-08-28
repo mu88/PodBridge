@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <CustomContainerBaseImageVersion>10.0.3</CustomContainerBaseImageVersion>
+    <PublishRegularContainer>false</PublishRegularContainer>
+    <PublishChiseledContainer>true</PublishChiseledContainer>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../PodBridge.Logic/PodBridge.Logic.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="mu88.Shared" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="Tests" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="bunit" />
+    <PackageReference Include="CliWrap" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="FluentAssertions.Web.v8" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="mu88.Shared" />
+    <PackageReference Include="NSubstitute" />
+    <PackageReference Include="NUnit" />
+    <PackageReference Include="NUnit.Analyzers" PrivateAssets="All" />
+    <PackageReference Include="NUnit3TestAdapter" PrivateAssets="All" />
+    <PackageReference Include="Testcontainers" />
+    <PackageReference Include="WireMock.Net.Testcontainers" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/PodBridge.Logic/PodBridge.Logic.csproj" />
+    <ProjectReference Include="../../src/PodBridge.Api/PodBridge.Api.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Content Include="testData\**">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+
+</Project>

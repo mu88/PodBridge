@@ -1,0 +1,10 @@
+@attribute [ExcludeFromCodeCoverage(Justification = "bUnit never invokes a <PageTitle> child fragment without additional HeadOutlet/JSInterop setup, so this trivial wrapper cannot be exercised in unit tests; the title-selection logic itself is unit-tested separately via PodcastDetail.DisplayTitle.")]
+@using System.Diagnostics.CodeAnalysis
+@namespace PodBridge.Api.Components.Shared
+
+<PageTitle>@Title</PageTitle>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+}

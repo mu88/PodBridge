@@ -1,0 +1,24 @@
+name: Combined CI / Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+
+jobs:
+  shared_ci_cd:
+    permissions:
+      attestations: write
+      contents: read
+      id-token: write
+      packages: write
+
+    uses: mu88/common/.github/workflows/ci-cd.yml@3acb6a732366cfadf93cd1a029a2ae590d6a4f16
+    with:
+      docker-attest-provenance-and-sbom: true
+      docker-publish-project: src/PodBridge.Api/PodBridge.Api.csproj
+      sonar-additional-params: '/d:sonar.coverage.exclusions=**/wwwroot/**,**/Program.cs' # exclude static assets and composition root
+      sonar-key: mu88_PodBridge
+    secrets:
+      sonar-token: ${{ secrets.SONAR_TOKEN }}

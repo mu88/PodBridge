@@ -1,0 +1,33 @@
+@using PodBridge.Api.Components.Layout
+@namespace PodBridge.Api.Components.Layout
+@inherits LayoutComponentBase
+@inject IHostEnvironment HostEnvironment
+
+<div class="app-shell">
+    <header class="site-header">
+        <div class="shell-container">
+            <nav class="site-nav">
+                <span class="site-kicker">Private podcast bridge</span>
+                <h1 class="site-title">PodBridge</h1>
+                <span class="site-subtitle">Republish structured JSON metadata as clean RSS feeds.</span>
+            </nav>
+        </div>
+    </header>
+
+    <main class="shell-container page-content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    @if (HostEnvironment.IsProduction())
+    {
+        <span>An error has occurred.</span>
+    }
+    else
+    {
+        <span>An unhandled exception occurred.</span>
+    }
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>

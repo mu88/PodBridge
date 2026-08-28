@@ -1,0 +1,87 @@
+{
+  "Request": {
+    "Methods": ["POST"],
+    "Path": "/graphql",
+    "Body": {
+      "MatchOperator": "And",
+      "Matchers": [
+        { "Name": "WildcardMatcher", "Pattern": "*programSet*" },
+        { "Name": "WildcardMatcher", "Pattern": "*\"showId\":\"fixture-show-id\"*" }
+      ]
+    }
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": {
+      "Content-Type": "application/json"
+    },
+    "BodyAsJson": {
+      "data": {
+        "programSet": {
+          "title": "System Test Fixture Show",
+          "synopsis": "A test show for system tests",
+          "description": "Extended description for system test fixture show",
+          "sharingUrl": "https://fixture.test/show/fixture-show",
+          "image": {
+            "url": "https://fixture.test/images/{width}/show.jpg"
+          },
+          "publicationService": {
+            "title": "Test Platform"
+          },
+          "items": {
+            "pageInfo": {
+              "hasNextPage": false,
+              "endCursor": null
+            },
+            "nodes": [
+              {
+                "id": "ep-001",
+                "title": "Episode 1: The Beginning",
+                "publishDate": "2024-01-01T10:00:00Z",
+                "synopsis": "First episode synopsis",
+                "summary": "First episode summary",
+                "description": "First episode description",
+                "showNotes": "First episode show notes",
+                "duration": 3600,
+                "episodeNumber": 1,
+                "sharingUrl": "https://fixture.test/episode/ep-001",
+                "image": {
+                  "url": "https://fixture.test/images/{width}/ep-001.jpg"
+                },
+                "audios": [
+                  {
+                    "url": "https://fixture.test/audio/ep-001.mp3",
+                    "downloadUrl": "https://fixture.test/download/ep-001.mp3",
+                    "mimeType": "audio/mpeg"
+                  }
+                ]
+              },
+              {
+                "id": "ep-002",
+                "title": "Episode 2: The Journey",
+                "publishDate": "2024-01-08T10:00:00Z",
+                "synopsis": "Second episode synopsis",
+                "summary": "Second episode summary",
+                "description": "Second episode description",
+                "showNotes": "Second episode show notes",
+                "duration": 2700,
+                "episodeNumber": 2,
+                "sharingUrl": "https://fixture.test/episode/ep-002",
+                "image": {
+                  "url": "https://fixture.test/images/{width}/ep-002.jpg"
+                },
+                "audios": [
+                  {
+                    "url": "https://fixture.test/audio/ep-002.mp3",
+                    "downloadUrl": "https://fixture.test/download/ep-002.mp3",
+                    "mimeType": "audio/mpeg"
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

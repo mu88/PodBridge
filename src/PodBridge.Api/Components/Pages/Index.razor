@@ -1,0 +1,88 @@
+@page "/"
+@using System.Globalization
+@using Microsoft.AspNetCore.Http
+@using Microsoft.Extensions.Options
+@using PodBridge.Logic
+@using PodBridge.Logic.Caching
+@using PodBridge.Logic.Config
+@using PodBridge.Logic.Feeds
+@namespace PodBridge.Api.Components.Pages
+@inject IOptions<PodBridgeOptions> Options
+@inject IPodcastCache PodcastCache
+@inject IFeedUrlBuilder FeedUrlBuilder
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>PodBridge - Feed Overview</PageTitle>
+
+@{
+    var podcasts = Options.Value.Podcasts.ToList();
+
+    // HttpContextAccessor.HttpContext is guaranteed non-null: the app only ever uses static SSR (no
+    // interactive render mode), so HttpContext is always present while a page is rendering.
+    var requestBaseUrl = HttpContextAccessor.HttpContext!.Request.ToBaseUrl();
+}
+
+<section class="page-hero">
+    <div>
+        <h2>Available Podcasts</h2>
+    </div>
+    @if (podcasts.Count > 0)
+    {
+        <span class="podcast-count">@podcasts.Count configured</span>
+    }
+</section>
+
+@if (podcasts.Count > 0)
+{
+    <section class="surface-card">
+        <div class="table-scroll">
+            <table class="podcast-table">
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Show</th>
+                        <th>Feed</th>
+                        <th>Subscribe</th>
+                        <th>Last Updated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var podcast in podcasts)
+                    {
+                        var feedUrl = FeedUrlBuilder.BuildFeedUrl(podcast.PodcastId, requestBaseUrl);
+                        var cached = PodcastCache.TryGetFull(podcast.PodcastId);
+                        var lastUpdated = cached?.LastUpdated.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) ?? "Not yet generated";
+                        var imageUrl = cached?.Podcast.ImageUrl?.OriginalString;
+                        var title = cached?.Podcast.Title ?? $"Podcast {podcast.ShowId} - not yet fetched";
+
+                        <tr @key="podcast.PodcastId">
+                            <td class="podcast-image-cell">
+                                @if (!string.IsNullOrWhiteSpace(imageUrl))
+                                {
+                                    <img class="podcast-image" src="@imageUrl" alt="@title" loading="lazy" />
+                                }
+                            </td>
+                            <td>
+                                <a class="podcast-name" href="/podcasts/@podcast.PodcastId">@title</a>
+                                <div class="podcast-id">@podcast.PodcastId</div>
+                            </td>
+                            <td><a class="action-link" href="@feedUrl" target="_blank">RSS</a></td>
+                            <td>
+                                <a class="action-link action-link--accent" href="antennapod-subscribe://@feedUrl" target="_blank">Subscribe in AntennaPod</a>
+                            </td>
+                            <td>
+                                <span class="status-pill">@(lastUpdated)</span>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+else
+{
+    <section class="surface-card empty-state">
+        <p>No podcasts configured.</p>
+    </section>
+}

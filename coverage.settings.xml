@@ -1,0 +1,17 @@
+<Configuration>
+    <CodeCoverage>
+        <ModulePaths>
+            <Include>
+                <ModulePath>.*PodBridge\.Api\.dll$</ModulePath>
+                <ModulePath>.*PodBridge\.Logic\.dll$</ModulePath>
+            </Include>
+        </ModulePaths>
+        <!-- Program.cs is the ASP.NET Core composition root (DI wiring, middleware pipeline); already excluded from
+             mutation testing and Sonar coverage. Excluded here too so coverage goals reflect testable application code. -->
+        <Sources>
+            <Exclude>
+                <Source>.*[\\/]Program\.cs$</Source>
+            </Exclude>
+        </Sources>
+    </CodeCoverage>
+</Configuration>

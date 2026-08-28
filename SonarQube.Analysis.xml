@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<SonarQubeAnalysisProperties
+  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
+  <!-- Exclude static frontend assets and the ASP.NET Core composition root from coverage —
+       wwwroot assets are not covered by .NET test tooling and Program.cs is excluded from
+       mutation testing as well (see stryker-config.json). -->
+  <Property Name="sonar.coverage.exclusions">**/wwwroot/**,**/Program.cs</Property>
+</SonarQubeAnalysisProperties>

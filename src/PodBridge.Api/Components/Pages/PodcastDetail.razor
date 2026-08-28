@@ -1,0 +1,161 @@
+@page "/podcasts/{PodcastId}"
+@using System.Globalization
+@using Microsoft.AspNetCore.Http
+@using Microsoft.Extensions.Options
+@using PodBridge.Logic
+@using PodBridge.Logic.Caching
+@using PodBridge.Logic.Config
+@using PodBridge.Logic.Domain
+@using PodBridge.Logic.Feeds
+@namespace PodBridge.Api.Components.Pages
+@inject IOptions<PodBridgeOptions> Options
+@inject IPodcastCache PodcastCache
+@inject IFeedUrlBuilder FeedUrlBuilder
+@inject IHttpContextAccessor HttpContextAccessor
+@inject NavigationManager NavigationManager
+
+@if (_podcastConfig is not null)
+{
+    <PodcastPageTitle Title="@($"PodBridge - {DisplayTitle}")" />
+
+    <a class="action-link back-link" href="/">&larr; Back to overview</a>
+
+    <section class="page-hero podcast-hero">
+        @if (!string.IsNullOrWhiteSpace(_cached?.ImageUrl?.OriginalString))
+        {
+            <img class="podcast-hero-image" src="@_cached.ImageUrl.OriginalString" alt="@_cached.Title" loading="lazy" />
+        }
+        <div>
+            <h2>@(_cached?.Title ?? $"Podcast {_podcastConfig.ShowId} - not yet fetched")</h2>
+            @if (!string.IsNullOrWhiteSpace(_cached?.Description))
+            {
+                <p class="podcast-description">@_cached.Description</p>
+            }
+            <div class="podcast-meta">
+                @if (!string.IsNullOrWhiteSpace(_cached?.Author))
+                {
+                    <span class="status-pill">@_cached.Author</span>
+                }
+                @if (!string.IsNullOrWhiteSpace(_cached?.Language))
+                {
+                    <span class="status-pill">@_cached.Language</span>
+                }
+                <span class="status-pill">@(_episodes.Count) episodes</span>
+            </div>
+            <div class="podcast-actions">
+                <a class="action-link" href="@_feedUrl" target="_blank">RSS</a>
+                <a class="action-link action-link--accent" href="antennapod-subscribe://@_feedUrl" target="_blank">Subscribe in AntennaPod</a>
+            </div>
+        </div>
+    </section>
+
+    @if (_cached is null)
+    {
+        <section class="surface-card empty-state">
+            <p>Feed not yet generated, please retry shortly.</p>
+        </section>
+    }
+    else if (_episodes.Count == 0)
+    {
+        <section class="surface-card empty-state">
+            <p>No episodes available yet.</p>
+        </section>
+    }
+    else
+    {
+        <section class="surface-card">
+            <div class="table-scroll">
+                <table class="podcast-table">
+                    <thead>
+                        <tr>
+                            <th></th>
+                            <th>Episode</th>
+                            <th>Published</th>
+                            <th>Duration</th>
+                            <th>Listen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var episode in _episodes)
+                        {
+                            <tr @key="episode.Guid">
+                                <td class="podcast-image-cell">
+                                    @if (!string.IsNullOrWhiteSpace(episode.ImageUrl?.OriginalString))
+                                    {
+                                        <img class="podcast-image" src="@episode.ImageUrl.OriginalString" alt="@episode.Title" loading="lazy" />
+                                    }
+                                </td>
+                                <td>
+                                    <div class="podcast-name">@episode.Title</div>
+                                    @if (!string.IsNullOrWhiteSpace(episode.Description))
+                                    {
+                                        <div class="podcast-id">@TruncateDescription(episode.Description)</div>
+                                    }
+                                </td>
+                                <td><span class="status-pill">@episode.PublishDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)</span></td>
+                                <td><span class="status-pill">@FormatDuration(episode.DurationSeconds)</span></td>
+                                <td><a class="action-link" href="@episode.AudioUrl" target="_blank">Play</a></td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    }
+}
+
+@code {
+    private PodcastConfig? _podcastConfig;
+    private Podcast? _cached;
+    private IReadOnlyList<Episode> _episodes = [];
+    private string? _feedUrl;
+
+    [Parameter]
+    public string PodcastId { get; set; } = string.Empty;
+
+    // Extracted from the <PageTitle> markup so the title-selection logic can be unit-tested directly:
+    // bUnit never invokes a <PageTitle> child fragment without additional HeadOutlet/JSInterop setup.
+    internal string DisplayTitle => _cached?.Title ?? _podcastConfig!.PodcastId;
+
+    protected override void OnParametersSet()
+    {
+        _podcastConfig = Options.Value.Podcasts
+            .FirstOrDefault(podcast => string.Equals(podcast.PodcastId, PodcastId, StringComparison.Ordinal));
+        if (_podcastConfig is null)
+        {
+            NavigationManager.NotFound();
+            return;
+        }
+
+        _cached = PodcastCache.TryGetFull(_podcastConfig.PodcastId)?.Podcast;
+        _episodes = _cached?.Episodes.OrderByDescending(episode => episode.PublishDate).ToList() ?? [];
+
+        // HttpContextAccessor.HttpContext is guaranteed non-null: the app only ever uses static SSR (no
+        // interactive render mode), so HttpContext is always present while a page is rendering.
+        _feedUrl = FeedUrlBuilder.BuildFeedUrl(_podcastConfig.PodcastId, HttpContextAccessor.HttpContext!.Request.ToBaseUrl());
+    }
+
+    private static string FormatDuration(int? seconds)
+    {
+        if (seconds is null)
+        {
+            return "-";
+        }
+
+        return TimeSpan.FromSeconds(seconds.Value).ToString(seconds >= 3600 ? @"h\:mm\:ss" : @"m\:ss");
+    }
+
+    private const int MaxDescriptionLength = 220;
+
+    private static string TruncateDescription(string description)
+    {
+        if (description.Length <= MaxDescriptionLength)
+        {
+            return description;
+        }
+
+        var lastSpaceIndex = description.LastIndexOf(' ', MaxDescriptionLength);
+        var cutoffIndex = lastSpaceIndex > 0 ? lastSpaceIndex : MaxDescriptionLength;
+        return $"{description[..cutoffIndex]} [...]";
+    }
+}

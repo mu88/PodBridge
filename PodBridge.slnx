@@ -1,0 +1,7 @@
+<Solution>
+  <Folder Name="/src/" />
+  <Folder Name="/tests/" />
+  <Project Path="src/PodBridge.Api/PodBridge.Api.csproj" />
+  <Project Path="src/PodBridge.Logic/PodBridge.Logic.csproj" />
+  <Project Path="tests/Tests/Tests.csproj" />
+</Solution>
