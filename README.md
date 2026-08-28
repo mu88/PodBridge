@@ -1,5 +1,16 @@
 # PodBridge
 
+![Combined CI / Release](https://github.com/mu88/PodBridge/actions/workflows/CI_CD.yml/badge.svg)
+![Mutation testing](https://github.com/mu88/PodBridge/actions/workflows/Mutation%20Testing.yml/badge.svg)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Security Rating](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=security_rating)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Bugs](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=bugs)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Vulnerabilities](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=vulnerabilities)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Code Smells](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=code_smells)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Coverage](https://sonarcloud.io/api/project_badges/measure?project=mu88_PodBridge&metric=coverage)](https://sonarcloud.io/summary/new_code?id=mu88_PodBridge)
+[![Mutation testing badge](https://img.shields.io/endpoint?style=flat&url=https%3A%2F%2Fbadge-api.stryker-mutator.io%2Fgithub.com%2Fmu88%2FPodBridge%2Fmain)](https://dashboard.stryker-mutator.io/reports/github.com/mu88/PodBridge/main)
+
 A podcast metadata bridge that fetches episode data from a configurable GraphQL endpoint and republishes it as standard RSS 2.0 + iTunes-compatible feeds. Designed for private, self-hosted podcast aggregation.
 
 ## Features

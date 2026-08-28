@@ -13,6 +13,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Unit.Pages;
 
 [TestFixture]
+[Category("Unit")]
 public sealed class IndexTests
 {
     private BunitContext _ctx = null!;

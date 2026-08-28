@@ -14,6 +14,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Unit.Pages;
 
 [TestFixture]
+[Category("Unit")]
 public sealed class PodcastDetailTests
 {
     private BunitContext _ctx = null!;

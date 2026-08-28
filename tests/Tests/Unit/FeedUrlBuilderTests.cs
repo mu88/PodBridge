@@ -5,6 +5,7 @@ using PodBridge.Logic.Feeds;
 namespace Tests.Unit;
 
 [TestFixture]
+[Category("Unit")]
 public sealed class FeedUrlBuilderTests
 {
     [TestCase(null)]

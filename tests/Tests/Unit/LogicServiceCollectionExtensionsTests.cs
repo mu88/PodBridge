@@ -13,6 +13,7 @@ using PodBridge.Logic.Refresh;
 namespace Tests.Unit;
 
 [TestFixture]
+[Category("Unit")]
 public class LogicServiceCollectionExtensionsTests
 {
     [Test]

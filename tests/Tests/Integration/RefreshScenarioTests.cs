@@ -16,6 +16,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Integration;
 
 [TestFixture]
+[Category("Integration")]
 public sealed class RefreshScenarioTests
 {
     private IEpisodeSource _episodeSourceMock = null!;

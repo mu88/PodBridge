@@ -6,6 +6,7 @@ using PodBridge.Api;
 namespace Tests.Unit;
 
 [TestFixture]
+[Category("Unit")]
 public class HttpRequestExtensionsTests
 {
     [Test]

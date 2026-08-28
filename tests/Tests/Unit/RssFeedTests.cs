@@ -7,6 +7,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Unit;
 
 [TestFixture]
+[Category("Unit")]
 public class RssFeedTests
 {
     [Test]

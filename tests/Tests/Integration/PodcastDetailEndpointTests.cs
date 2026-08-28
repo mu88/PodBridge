@@ -8,6 +8,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Integration;
 
 [TestFixture]
+[Category("Integration")]
 public sealed class PodcastDetailEndpointTests
 {
     [Test]

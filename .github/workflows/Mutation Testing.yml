@@ -25,9 +25,11 @@ jobs:
         run: dotnet build
 
       - name: Run mutation testing
+        env:
+          STRYKER_DASHBOARD_API_KEY: ${{ secrets.STRYKER_DASHBOARD_API_KEY }}
         run: |
           dotnet tool run dotnet-stryker \
-            --dashboard-api-key "${{ secrets.STRYKER_DASHBOARD_API_KEY }}" \
+            --dashboard-api-key "$STRYKER_DASHBOARD_API_KEY" \
             --version "${{ github.ref_name }}" \
             --output ${{ runner.temp }}/Stryker/
 

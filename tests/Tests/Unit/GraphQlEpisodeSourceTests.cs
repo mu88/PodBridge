@@ -10,6 +10,7 @@ using Tests.TestSupport.Builders;
 namespace Tests.Unit;
 
 [TestFixture]
+[Category("Unit")]
 public class GraphQlEpisodeSourceTests
 {
     private HttpClient _httpClient = null!;

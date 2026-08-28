@@ -18,6 +18,7 @@ jobs:
     with:
       docker-attest-provenance-and-sbom: true
       docker-publish-project: src/PodBridge.Api/PodBridge.Api.csproj
+      requires-docker-login: true
       sonar-additional-params: '/d:sonar.coverage.exclusions=**/wwwroot/**,**/Program.cs' # exclude static assets and composition root
       sonar-key: mu88_PodBridge
     secrets:
