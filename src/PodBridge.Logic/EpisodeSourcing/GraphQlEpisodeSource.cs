@@ -82,7 +82,7 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
             ?? throw new InvalidOperationException($"No program set was returned for show '{showId}'.");
     }
 
-    private static IReadOnlyList<Episode> MapEpisodes(IReadOnlyList<Item> items)
+    private static List<Episode> MapEpisodes(IReadOnlyList<Item> items)
     {
         return items
             .Select(MapEpisode)

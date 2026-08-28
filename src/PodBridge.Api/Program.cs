@@ -107,8 +107,8 @@ if (resolvedOptions.Auth.Enabled)
 
 app.UseAntiforgery();
 
-// UI (Blazor pages/static assets) stays at the root so the dashboard is reachable at "/";
-// the JSON/RSS API is grouped under "/api" to keep the two surfaces unambiguous.
+// UI (Blazor pages/static assets) stays at the root so the dashboard is reachable at the root path,
+// while the JSON/RSS API is grouped under /api to keep the two surfaces unambiguous.
 RouteGroupBuilder CreateProtectedGroup(string prefix)
 {
     return resolvedOptions.Auth.Enabled
@@ -128,5 +128,7 @@ protectedEndpoints.MapRazorComponents<App>();
 
 await app.RunAsync();
 
-[ExcludeFromCodeCoverage(Justification = "Composition root; excluded from Sonar coverage metric too (see CI_CD.yml).")]
+[ExcludeFromCodeCoverage(Justification = "Composition root; excluded from Sonar coverage metric too (see SonarQube.Analysis.xml).")]
+[SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "S1118", Justification = "Necessary for code coverage")]
+[SuppressMessage("ASP", "ASP0027:Using public partial class Program is no longer required", Justification = "StyleCop SA1205 requires access modifier on partial types")]
 public partial class Program;

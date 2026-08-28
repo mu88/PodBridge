@@ -20,7 +20,7 @@ namespace Tests.Integration;
 public sealed class RefreshScenarioTests
 {
     private IEpisodeSource _episodeSourceMock = null!;
-    private IPodcastCache _podcastCache = null!;
+    private PodcastCache _podcastCache = null!;
 
     [SetUp]
     public void Setup()
@@ -365,7 +365,7 @@ public sealed class RefreshScenarioTests
         var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var executeTask = (Task)executeAsyncMethod.Invoke(testee, [CancellationToken.None])!;
         timeProvider.Advance(TimeSpan.FromMinutes(podBridgeOptions.RefreshIntervalMinutes)); // triggers the tick that then stops the loop
-        await executeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        await executeTask.WaitAsync(TimeSpan.FromSeconds(5), TimeProvider.System);
 
         // Assert
         _podcastCache.TryGetFull(showConfig.PodcastId).Should().NotBeNull();
@@ -397,9 +397,9 @@ public sealed class RefreshScenarioTests
         var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var executeTask = (Task)executeAsyncMethod.Invoke(testee, [cts.Token])!;
         timeProvider.Advance(TimeSpan.FromMinutes(podBridgeOptions.RefreshIntervalMinutes)); // first tick: default continueLoop() runs and returns true
-        await Task.Delay(TimeSpan.FromMilliseconds(100)); // lets the loop re-enter and start waiting on the timer again
+        await Task.Delay(TimeSpan.FromMilliseconds(100), TimeProvider.System, cts.Token); // lets the loop re-enter and start waiting on the timer again
         await cts.CancelAsync();
-        var act = async () => await executeTask.WaitAsync(TimeSpan.FromSeconds(5));
+        var act = async () => await executeTask.WaitAsync(TimeSpan.FromSeconds(5), TimeProvider.System, cts.Token);
 
         // Assert
         await act.Should().ThrowAsync<OperationCanceledException>();

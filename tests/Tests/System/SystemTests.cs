@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Xml.Linq;
@@ -61,10 +62,11 @@ public class PodBridgeSystemTests
     }
 
     [Test]
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP014:Use a single instance of HttpClient", Justification = "Short-lived system test client targeting a Testcontainers-assigned port that only exists for the duration of this test; a shared instance isn't feasible.")]
     public async Task AppRunningInDocker_ShouldSyncPodcastFromWireMockAndExposeRssFeed()
     {
         // Arrange
-        var imageTag = $"system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        var imageTag = $"system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
         await BuildDockerImageAsync(imageTag);
 
         _network = new NetworkBuilder().Build();
@@ -102,10 +104,11 @@ public class PodBridgeSystemTests
     }
 
     [Test]
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP014:Use a single instance of HttpClient", Justification = "Short-lived system test clients targeting a Testcontainers-assigned port that only exists for the duration of this test; a shared instance isn't feasible.")]
     public async Task AppRunningInDocker_WithBasicAuthEnabled_ShouldEnforceAuthentication()
     {
         // Arrange
-        var imageTag = $"system-test-auth-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}";
+        var imageTag = $"system-test-auth-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
         await BuildDockerImageAsync(imageTag);
 
         _network = new NetworkBuilder().Build();
@@ -141,6 +144,27 @@ public class PodBridgeSystemTests
         feedWithAuth.Should().Be200Ok();
     }
 
+    private static async Task CleanupPodBridgeContainerAsync(IContainer container, CancellationToken cancellationToken)
+    {
+        await container.StopAsync(cancellationToken);
+
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")))
+        {
+            var imageName = container.Image.FullName;
+
+            try
+            {
+                await Cli.Wrap("docker")
+                    .WithArguments(new[] { "rmi", "--force", imageName })
+                    .ExecuteAsync(cancellationToken);
+            }
+            catch
+            {
+                // Best effort cleanup
+            }
+        }
+    }
+
     private async Task<WireMockContainer> StartWireMockContainerAsync()
     {
         var mappingsDir = Path.Combine(AppContext.BaseDirectory, "testData", "system", "wiremock-mappings");
@@ -156,7 +180,7 @@ public class PodBridgeSystemTests
 
     private async Task<IContainer> StartPodBridgeContainerAsync(string imageTag, bool authEnabled)
     {
-        var imageName = $"podbridge-api:{imageTag}";
+        var imageName = $"podbridge-api:{imageTag}-chiseled";
         var builder = new ContainerBuilder(imageName)
             .WithNetwork(_network)
             .WithNetworkAliases("podbridge")
@@ -190,10 +214,28 @@ public class PodBridgeSystemTests
     private async Task BuildDockerImageAsync(string imageTag)
     {
         // PodBridge intentionally has no Dockerfile (see README.md) - the image is built via the .NET SDK's
-        // built-in container publishing support (Microsoft.NET.Build.Containers, chiseled base image).
+        // built-in container publishing support (Microsoft.NET.Build.Containers, chiseled base image), routed
+        // through mu88.Shared's PublishContainersForMultipleFamilies target (same as the production release
+        // build). DoNotApplyGitHubScope=true keeps the image local (no ghcr.io push) so Testcontainers can
+        // reference it by its plain repository:tag name; without it, mu88.Shared.targets would auto-redirect
+        // the build to push to ghcr.io whenever GITHUB_ACTIONS is set, leaving no local image to start.
+        // --os linux --arch amd64 restricts the build to a single-platform image (matching the sibling
+        // PodScrub repo): without it, the target produces a multi-arch image index (linux-x64 + linux-arm64),
+        // which Docker can only load locally when its containerd image store is enabled - not the case on
+        // GitHub-hosted runners, causing "CONTAINER1020: containerd image store is not enabled" at load time.
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
         using var commandTask = Cli.Wrap("dotnet")
-            .WithArguments(new[] { "publish", "src/PodBridge.Api/PodBridge.Api.csproj", "-t:PublishContainer", $"-p:ContainerImageTag={imageTag}" })
+            .WithArguments(new[]
+            {
+                "publish", "src/PodBridge.Api/PodBridge.Api.csproj",
+                "--os", "linux",
+                "--arch", "amd64",
+                "-t:PublishContainersForMultipleFamilies",
+                $"-p:ReleaseVersion={imageTag}",
+                "-p:IsRelease=false",
+                "-p:DoNotApplyGitHubScope=true",
+                "-p:ContainerRepository=podbridge-api",
+            })
             .WithWorkingDirectory(repoRoot)
             .WithValidation(CommandResultValidation.None)
             .ExecuteBufferedAsync(_cancellationTokenSource.Token);
@@ -201,7 +243,7 @@ public class PodBridgeSystemTests
 
         if (result.ExitCode != 0)
         {
-            throw new InvalidOperationException($"Container publish failed with exit code {result.ExitCode}. Output: {result.StandardOutput}. Error: {result.StandardError}");
+            throw new InvalidOperationException($"Container publish failed with exit code {result.ExitCode.ToString(CultureInfo.InvariantCulture)}. Output: {result.StandardOutput}. Error: {result.StandardError}");
         }
     }
 
@@ -232,7 +274,7 @@ public class PodBridgeSystemTests
             if (response.IsSuccessStatusCode)
             {
                 var content = await response.Content.ReadAsStringAsync(_cancellationTokenSource.Token);
-                if (content.Contains(FixtureShowDisplayName))
+                if (content.Contains(FixtureShowDisplayName, StringComparison.Ordinal))
                 {
                     return response; // Caller owns disposal
                 }
@@ -246,27 +288,7 @@ public class PodBridgeSystemTests
             }
         }
 
-        throw new TimeoutException($"Feed not populated after {maxAttempts} attempts over {maxAttempts * delayBetweenAttempts.TotalSeconds} seconds");
-    }
-
-    private async Task CleanupPodBridgeContainerAsync(IContainer container, CancellationToken cancellationToken)
-    {
-        await container.StopAsync(cancellationToken);
-
-        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("GITHUB_ACTIONS")))
-        {
-            var imageName = container.Image.FullName;
-
-            try
-            {
-                await Cli.Wrap("docker")
-                    .WithArguments(new[] { "rmi", "--force", imageName })
-                    .ExecuteAsync(cancellationToken);
-            }
-            catch
-            {
-                // Best effort cleanup
-            }
-        }
+        var totalWaitSeconds = maxAttempts * delayBetweenAttempts.TotalSeconds;
+        throw new TimeoutException($"Feed not populated after {maxAttempts.ToString(CultureInfo.InvariantCulture)} attempts over {totalWaitSeconds.ToString(CultureInfo.InvariantCulture)} seconds");
     }
 }

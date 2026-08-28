@@ -4,6 +4,12 @@ namespace Tests.TestSupport.Builders;
 
 internal sealed class GraphQlResponseBuilder
 {
+    private static readonly System.Text.Json.JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+        WriteIndented = true,
+    };
+
     private ProgramSet? _programSet;
     private List<GraphQlError>? _errors;
     private bool _hasDataWrapper = true;
@@ -50,10 +56,6 @@ internal sealed class GraphQlResponseBuilder
             Errors = _errors,
         };
 
-        return System.Text.Json.JsonSerializer.Serialize(graphQlResponse, new System.Text.Json.JsonSerializerOptions
-        {
-            PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
-            WriteIndented = true,
-        });
+        return System.Text.Json.JsonSerializer.Serialize(graphQlResponse, JsonOptions);
     }
 }

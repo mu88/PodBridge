@@ -156,7 +156,7 @@ public sealed class PodcastDetailTests
         ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
-        var longDescription = string.Join(" ", Enumerable.Repeat("word", 100));
+        var longDescription = string.Join(' ', Enumerable.Repeat("word", 100));
         var episode = new EpisodeBuilder().WithDefaults().Build() with { Description = longDescription };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
         _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));

@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using Microsoft.Extensions.Time.Testing;
 using NUnit.Framework;
@@ -135,7 +136,7 @@ public class PodcastCacheTests
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
         var tasks = Enumerable.Range(0, 100)
-            .Select(i => Task.Run(() => _testee.Update($"show-{i}", podcast)));
+            .Select(i => Task.Run(() => _testee.Update($"show-{i.ToString(CultureInfo.InvariantCulture)}", podcast)));
 
         // Act
         var act = async () => await Task.WhenAll(tasks);

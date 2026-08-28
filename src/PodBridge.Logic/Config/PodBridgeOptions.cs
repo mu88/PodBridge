@@ -63,9 +63,10 @@ public sealed class PodBridgeOptions : IValidatableObject
         }
     }
 
-    private static bool HasDuplicatePodcastIds(IReadOnlyCollection<PodcastConfig> podcasts)
+    private static bool HasDuplicatePodcastIds(List<PodcastConfig> podcasts)
     {
-        return podcasts.Select(podcast => podcast.PodcastId).Distinct(StringComparer.Ordinal).Count() != podcasts.Count;
+        var seenIds = new HashSet<string>(podcasts.Count, StringComparer.Ordinal);
+        return podcasts.Exists(podcast => !seenIds.Add(podcast.PodcastId));
     }
 
     private static bool HasEmptyPodcastId(IEnumerable<PodcastConfig> podcasts)
@@ -78,9 +79,10 @@ public sealed class PodBridgeOptions : IValidatableObject
         return podcasts.Any(podcast => string.IsNullOrWhiteSpace(podcast.ShowId));
     }
 
-    private static bool HasDuplicateShowIds(IReadOnlyCollection<PodcastConfig> podcasts)
+    private static bool HasDuplicateShowIds(List<PodcastConfig> podcasts)
     {
-        return podcasts.Select(podcast => podcast.ShowId).Distinct(StringComparer.Ordinal).Count() != podcasts.Count;
+        var seenIds = new HashSet<string>(podcasts.Count, StringComparer.Ordinal);
+        return podcasts.Exists(podcast => !seenIds.Add(podcast.ShowId));
     }
 
     private bool HasInvalidAuthConfiguration()

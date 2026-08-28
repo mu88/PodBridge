@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Net;
 using FluentAssertions;
 using Microsoft.Extensions.Options;
@@ -19,6 +21,7 @@ public class GraphQlEpisodeSourceTests
     private HttpMessageHandlerStub _httpMessageHandler = null!;
 
     [SetUp]
+    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP014:Use a single instance of HttpClient", Justification = "Each test gets a fresh HttpClient wired to its own HttpMessageHandlerStub with test-specific canned responses; disposed in Setup/Teardown.")]
     public void Setup()
     {
         _httpMessageHandler?.Dispose();
@@ -138,13 +141,13 @@ public class GraphQlEpisodeSourceTests
         _httpMessageHandler.SetResponses(Enumerable.Range(1, 100)
             .Select(pageNumber =>
             {
-                var item = new GraphQlItemBuilder().WithDefaults().Build() with { Id = $"item{pageNumber}" };
+                var item = new GraphQlItemBuilder().WithDefaults().Build() with { Id = $"item{pageNumber.ToString(CultureInfo.InvariantCulture)}" };
                 var pageJson = new GraphQlResponseBuilder()
                     .WithDefaults()
                     .WithProgramSet(new ProgramSetBuilder()
                         .WithDefaults()
                         .WithItems(item)
-                        .WithPagination(hasNextPage: true, endCursor: $"cursor{pageNumber}")
+                        .WithPagination(hasNextPage: true, endCursor: $"cursor{pageNumber.ToString(CultureInfo.InvariantCulture)}")
                         .Build())
                     .BuildJson();
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(pageJson) };

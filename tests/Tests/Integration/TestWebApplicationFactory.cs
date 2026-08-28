@@ -143,8 +143,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         for (var i = 0; i < _podcasts.Count; i++)
         {
             var podcast = _podcasts[i];
-            settings.Add($"PodBridge:Podcasts:{i}:PodcastId", podcast.PodcastId);
-            settings.Add($"PodBridge:Podcasts:{i}:ShowId", podcast.ShowId);
+            settings.Add($"PodBridge:Podcasts:{i.ToString(CultureInfo.InvariantCulture)}:PodcastId", podcast.PodcastId);
+            settings.Add($"PodBridge:Podcasts:{i.ToString(CultureInfo.InvariantCulture)}:ShowId", podcast.ShowId);
         }
     }
 
