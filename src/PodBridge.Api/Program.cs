@@ -1,6 +1,7 @@
 // Stryker disable all : Program.cs is the ASP.NET Core composition root; DI wiring and middleware configuration mutations are not meaningful at unit level
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.RateLimiting;
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Options;
@@ -23,6 +24,15 @@ builder.Services.ConfigureOpenTelemetry("podbridge", builder.Configuration);
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddSource(Observability.Source.Name))
     .WithMetrics(metrics => metrics.AddMeter(Observability.MeterName));
+
+// Additive to the OTLP-based setup above (safe to call AddOpenTelemetry() multiple times, see
+// https://github.com/open-telemetry/opentelemetry-dotnet/blob/main/src/OpenTelemetry.Extensions.Hosting/OpenTelemetryServicesExtensions.cs).
+// Only registered when a connection string is actually configured so local development/tests are unaffected.
+if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+{
+    builder.Services.AddOpenTelemetry().UseAzureMonitor();
+}
+
 builder.Services.AddHealthChecks();
 builder.Services.AddHttpContextAccessor();
 builder.Services.RegisterPodBridgeServices(builder.Configuration);
