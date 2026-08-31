@@ -42,16 +42,26 @@ jobs:
       group: deploy-production
       cancel-in-progress: false
 
-    permissions: {}
+    permissions:
+      packages: read
 
     steps:
+      - name: Login to Container registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Determine container image to deploy
         id: determine-image
         shell: pwsh
         env:
           IMAGE_NAMES: ${{ needs.shared_ci_cd.outputs.image_names }}
-          DIGESTS: ${{ needs.shared_ci_cd.outputs.digests }}
         run: |
+          $ErrorActionPreference = 'Stop'
+          $PSNativeCommandUseErrorActionPreference = $true
+
           $imageNames = $env:IMAGE_NAMES | ConvertFrom-Json
           # PodBridge only publishes the chiseled container family (see PublishChiseledContainer in
           # PodBridge.Api.csproj) - pick it explicitly by name instead of assuming array position/count,
@@ -61,16 +71,18 @@ jobs:
             throw "No chiseled image found among generated images: $($imageNames -join ', ')"
           }
 
-          # PodBridge publishes exactly one family/platform, so the shared workflow's digests output
-          # (not keyed to a specific tag) is expected to contain exactly one entry - the chiseled image's
-          # own digest. Assert this explicitly rather than silently guessing wrong if that ever changes.
-          $digests = $env:DIGESTS | ConvertFrom-Json
-          if (@($digests).Count -ne 1) {
-            throw "Expected exactly one digest for the single published container family, but got: $($digests -join ', ')"
+          # PodBridge publishes a multi-arch image (linux-x64 + linux-arm64, see RuntimeIdentifiers in
+          # PodBridge.Api.csproj), so the shared workflow's digests output mixes per-platform manifest
+          # digests with the manifest-list digest and isn't keyed to a specific tag - not reliable to
+          # consume here (order/count aren't a documented contract). Resolve the manifest-list digest for
+          # this exact tag directly instead, using the same technique the shared workflow uses internally.
+          docker pull $chiseledImage
+          $repoDigest = docker inspect --format='{{index .RepoDigests 0}}' $chiseledImage
+          if ($repoDigest -notmatch '@(sha256:[a-f0-9]{64})$') {
+            throw "Could not determine digest for '$chiseledImage' from RepoDigests: $repoDigest"
           }
-          $digest = @($digests)[0]
 
-          $fullyQualifiedImage = "$chiseledImage@$digest"
+          $fullyQualifiedImage = "$chiseledImage@$($Matches[1])"
           Write-Host "Determined container image to deploy: $fullyQualifiedImage"
           Write-Output "image=$fullyQualifiedImage" >> $env:GITHUB_OUTPUT
 
