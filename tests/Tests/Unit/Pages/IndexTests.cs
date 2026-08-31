@@ -92,6 +92,26 @@ public sealed class IndexTests
         row.TextContent.Should().Contain("Podcast show-id - not yet fetched");
         row.TextContent.Should().Contain("Not yet generated");
         testee.FindAll("img").Should().BeEmpty();
+        testee.Find("tbody tr span.status-pill").TextContent.Should().NotContain("(UTC)");
+    }
+
+    [Test]
+    public void Render_WithCachedShow_AppendsUtcSuffixToLastUpdated()
+    {
+        // Arrange: the app is pure static SSR Blazor with no way to know the visitor's browser
+        // timezone, so the UTC timestamp is shown as-is with an explicit "(UTC)" suffix instead of
+        // silently mislabeling it as local time.
+        var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
+        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show");
+        var lastUpdated = new DateTimeOffset(2026, 8, 31, 14, 1, 0, TimeSpan.Zero);
+        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(new PodcastBuilder().WithDefaults().Build(), lastUpdated));
+
+        // Act
+        using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
+
+        // Assert
+        testee.Find("tbody tr span.status-pill").TextContent.Should().Be("31.08.2026 14:01 (UTC)");
     }
 
     [Test]

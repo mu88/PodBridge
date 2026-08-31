@@ -92,7 +92,7 @@
                                         <div class="podcast-id">@TruncateDescription(episode.Description)</div>
                                     }
                                 </td>
-                                <td><span class="status-pill">@episode.PublishDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)</span></td>
+                                <td><span class="status-pill">@episode.PublishDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) (UTC)</span></td>
                                 <td><span class="status-pill">@FormatDuration(episode.DurationSeconds)</span></td>
                                 <td><a class="action-link" href="@episode.AudioUrl" target="_blank">Play</a></td>
                             </tr>

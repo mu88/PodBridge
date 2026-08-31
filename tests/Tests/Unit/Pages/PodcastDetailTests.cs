@@ -190,9 +190,11 @@ public sealed class PodcastDetailTests
     }
 
     [Test]
-    public void Render_WithEpisode_FormatsPublishDateUnambiguously()
+    public void Render_WithEpisode_FormatsPublishDateUnambiguouslyWithUtcSuffix()
     {
-        // Arrange
+        // Arrange: the app is pure static SSR Blazor with no way to know the visitor's browser
+        // timezone, so the UTC timestamp is shown as-is with an explicit "(UTC)" suffix instead of
+        // silently mislabeling it as local time.
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
         ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
@@ -206,7 +208,7 @@ public sealed class PodcastDetailTests
             .Add(podcastDetail => podcastDetail.PodcastId, show.PodcastId));
 
         // Assert
-        testee.Find("tbody tr").TextContent.Should().Contain("24.08.2026 17:41");
+        testee.Find("tbody tr").TextContent.Should().Contain("24.08.2026 17:41 (UTC)");
     }
 
     [Test]

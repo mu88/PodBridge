@@ -51,7 +51,9 @@
                     {
                         var feedUrl = FeedUrlBuilder.BuildFeedUrl(podcast.PodcastId, requestBaseUrl);
                         var cached = PodcastCache.TryGetFull(podcast.PodcastId);
-                        var lastUpdated = cached?.LastUpdated.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) ?? "Not yet generated";
+                        var lastUpdated = cached is not null
+                            ? $"{cached.LastUpdated.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)} (UTC)"
+                            : "Not yet generated";
                         var imageUrl = cached?.Podcast.ImageUrl?.OriginalString;
                         var title = cached?.Podcast.Title ?? $"Podcast {podcast.ShowId} - not yet fetched";
 
