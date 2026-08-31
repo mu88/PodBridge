@@ -19,6 +19,14 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration
     .AddKeyPerFile("/run/secrets", optional: true);
 
+// Allows the full PodBridge configuration section (including the Podcasts array, which is unwieldy to set
+// via individual environment variables) to be provided as a single file mounted into the container - e.g.
+// via a Hostim.dev Volume. Read as a raw environment variable (not through builder.Configuration) so tests
+// can point it at a temp file deterministically before the host is built. Silently has no effect (optional:
+// true) when the file doesn't exist, so this is a no-op for local development and other deployments.
+var externalConfigFilePath = Environment.GetEnvironmentVariable("PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH") ?? "/data/podbridge.appsettings.json";
+builder.Configuration.AddJsonFile(externalConfigFilePath, optional: true, reloadOnChange: true);
+
 builder.Services.ConfigureOpenTelemetry("podbridge", builder.Configuration);
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddSource(Observability.Source.Name))
