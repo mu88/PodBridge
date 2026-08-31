@@ -20,7 +20,7 @@ jobs:
       id-token: write
       packages: write
 
-    uses: mu88/common/.github/workflows/ci-cd.yml@71491294b6cedc0b81ba1e440ece25aba0fbb85e
+    uses: mu88/common/.github/workflows/ci-cd.yml@2065d9a2f13eb5784433ac5bfc60e9a4df4ef9a5
     with:
       docker-attest-provenance-and-sbom: true
       docker-publish-project: src/PodBridge.Api/PodBridge.Api.csproj
@@ -50,6 +50,7 @@ jobs:
         shell: pwsh
         env:
           IMAGE_NAMES: ${{ needs.shared_ci_cd.outputs.image_names }}
+          DIGESTS: ${{ needs.shared_ci_cd.outputs.digests }}
         run: |
           $imageNames = $env:IMAGE_NAMES | ConvertFrom-Json
           # PodBridge only publishes the chiseled container family (see PublishChiseledContainer in
@@ -60,13 +61,23 @@ jobs:
             throw "No chiseled image found among generated images: $($imageNames -join ', ')"
           }
 
-          Write-Host "Determined container image to deploy: $chiseledImage"
-          Write-Output "image=$chiseledImage" >> $env:GITHUB_OUTPUT
+          # PodBridge publishes exactly one family/platform, so the shared workflow's digests output
+          # (not keyed to a specific tag) is expected to contain exactly one entry - the chiseled image's
+          # own digest. Assert this explicitly rather than silently guessing wrong if that ever changes.
+          $digests = $env:DIGESTS | ConvertFrom-Json
+          if (@($digests).Count -ne 1) {
+            throw "Expected exactly one digest for the single published container family, but got: $($digests -join ', ')"
+          }
+          $digest = @($digests)[0]
+
+          $fullyQualifiedImage = "$chiseledImage@$digest"
+          Write-Host "Determined container image to deploy: $fullyQualifiedImage"
+          Write-Output "image=$fullyQualifiedImage" >> $env:GITHUB_OUTPUT
 
       - name: Deploy to Hostim.dev
         uses: hostimdev/action@v2
         with:
-          api_token: ${{ secrets.HOSTIM_API_TOKEN }}
-          project: ${{ vars.HOSTIM_PROJECT_ID }}
-          app: ${{ vars.HOSTIM_APP_NAME }}
+          api_token: ${{ secrets.HOSTIM_DEV_API_TOKEN }}
+          project: ${{ vars.HOSTIM_DEV_PROJECT_ID }}
+          app: ${{ vars.HOSTIM_DEV_APP_NAME }}
           image: ${{ steps.determine-image.outputs.image }}
