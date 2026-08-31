@@ -86,6 +86,9 @@ jobs:
           Write-Host "Determined container image to deploy: $fullyQualifiedImage"
           Write-Output "image=$fullyQualifiedImage" >> $env:GITHUB_OUTPUT
 
+      # This step currently fails with "HTTP 400: Error at '/domains': Value is not nullable" for apps
+      # without a custom domain configured - tracked upstream at
+      # https://github.com/hostimdev/action/issues/2. Remove this comment once that's resolved.
       - name: Deploy to Hostim.dev
         uses: hostimdev/action@v2
         with:
