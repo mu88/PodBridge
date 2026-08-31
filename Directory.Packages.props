@@ -4,7 +4,6 @@
     <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
   </PropertyGroup>
   <ItemGroup>
-    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
     <PackageVersion Include="bunit" Version="2.9.0" />
     <PackageVersion Include="CliWrap" Version="3.10.5" />
     <PackageVersion Include="FluentAssertions" Version="8.10.0" />

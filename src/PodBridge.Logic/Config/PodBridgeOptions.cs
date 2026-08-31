@@ -49,7 +49,7 @@ public sealed class PodBridgeOptions : IValidatableObject
 
         if (HasInvalidAuthConfiguration())
         {
-            yield return new ValidationResult("Auth.Username and Auth.Password must be set when Auth.Enabled is true");
+            yield return new ValidationResult("Auth.UsernameHash and Auth.PasswordHash must be set when Auth.Enabled is true");
         }
 
         if (GraphQlEndpoint is not null && !GraphQlEndpoint.IsAbsoluteUri)
@@ -88,6 +88,6 @@ public sealed class PodBridgeOptions : IValidatableObject
     private bool HasInvalidAuthConfiguration()
     {
         return Auth.Enabled &&
-               (string.IsNullOrWhiteSpace(Auth.Username) || string.IsNullOrWhiteSpace(Auth.Password));
+               (string.IsNullOrWhiteSpace(Auth.UsernameHash) || string.IsNullOrWhiteSpace(Auth.PasswordHash));
     }
 }

@@ -56,8 +56,8 @@ Configure the GraphQL endpoint and podcasts in `appsettings.json` under the `Pod
     "GraphQlEndpoint": "https://example.org/graphql",
     "Auth": {
       "Enabled": false,
-      "Username": null,
-      "Password": null
+      "UsernameHash": null,
+      "PasswordHash": null
     },
     "Podcasts": [
       {
@@ -82,24 +82,33 @@ Configure the GraphQL endpoint and podcasts in `appsettings.json` under the `Pod
 - `Podcasts[*].PodcastId`: Internal feed slug used in `/api/podcasts/{podcastId}` and the `/podcasts/{podcastId}` overview page.
 - `Podcasts[*].ShowId`: Upstream GraphQL show identifier. Plain numeric IDs and URN-style IDs are both supported.
 - `Auth.Enabled`: Optional boolean flag to enable HTTP Basic Authentication (RFC 7617) on all endpoints except `/healthz`. Default: `false`.
-- `Auth.Username`: Username for Basic Auth (required if `Auth.Enabled` is true).
-- `Auth.Password`: Password for Basic Auth (required if `Auth.Enabled` is true).
+- `Auth.UsernameHash`: PBKDF2 hash of the Basic Auth username (required if `Auth.Enabled` is true). Generate it with `Scripts/New-CredentialHash.ps1` - the plaintext username is never stored.
+- `Auth.PasswordHash`: PBKDF2 hash of the Basic Auth password (required if `Auth.Enabled` is true). Generate it with `Scripts/New-CredentialHash.ps1` - the plaintext password is never stored.
 
 #### Authentication
 
-HTTP Basic Authentication is opt-in via the `Auth.Enabled` configuration flag. When enabled, all endpoints except `/healthz` require valid credentials:
+HTTP Basic Authentication is opt-in via the `Auth.Enabled` configuration flag. When enabled, all endpoints except `/healthz` require valid credentials.
+
+Credentials are configured as PBKDF2 hashes, not plaintext, so the actual username/password never needs to
+exist in configuration, a secret store, or a deployment platform's dashboard - only the account owner needs
+to know them. Generate the hashes once with `Scripts/New-CredentialHash.ps1`:
+
+```powershell
+./Scripts/New-CredentialHash.ps1 -Value 'myuser'
+./Scripts/New-CredentialHash.ps1 -Value 'mypassword'
+```
 
 **Configuration sources:**
 
 - **Environment variables** (standard .NET configuration):
   - `PodBridge__Auth__Enabled=true`
-  - `PodBridge__Auth__Username=myuser`
-  - `PodBridge__Auth__Password=mypassword`
+  - `PodBridge__Auth__UsernameHash=<hash produced by New-CredentialHash.ps1>`
+  - `PodBridge__Auth__PasswordHash=<hash produced by New-CredentialHash.ps1>`
 
 - **Docker secrets** (recommended for containerized deployments):
   - Mount secret files at `/run/secrets/`:
-    - `/run/secrets/PodBridge__Auth__Username` (file content = username)
-    - `/run/secrets/PodBridge__Auth__Password` (file content = password)
+    - `/run/secrets/PodBridge__Auth__UsernameHash` (file content = username hash)
+    - `/run/secrets/PodBridge__Auth__PasswordHash` (file content = password hash)
     - `/run/secrets/PodBridge__Auth__Enabled` (file content = `true` or `false`)
   - Note: Double underscores (`__`) in file names are converted to `:` config-key delimiters by .NET's Key-Per-File configuration provider.
 
@@ -137,7 +146,7 @@ docker run -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Production podbridge-api:local
 
 - `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer`, and a same-origin Content Security Policy are applied to all responses
 - `/api/podcasts/{podcastId}` and `/api/podcasts` are protected by fixed-window rate limiting per remote IP; `/healthz` stays exempt for probe traffic
-- The app trusts `X-Forwarded-For`/`X-Forwarded-Proto` from any immediate caller (needed for correct client IPs and rate limiting behind Azure App Service/Container Apps or a self-hosted reverse proxy). Only deploy PodBridge so it is reachable exclusively through that trusted proxy, never directly from untrusted networks - otherwise a direct caller could spoof its IP via these headers
+- The app trusts `X-Forwarded-For`/`X-Forwarded-Proto` from any immediate caller (needed for correct client IPs and rate limiting behind Hostim.dev, another managed container platform, or a self-hosted reverse proxy). Only deploy PodBridge so it is reachable exclusively through that trusted proxy, never directly from untrusted networks - otherwise a direct caller could spoof its IP via these headers
 - For personal, non-commercial, private use only
 - Before configuring any real data source, ensure you are entitled to do so under that source's terms of use and applicable law
 

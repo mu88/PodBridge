@@ -71,8 +71,8 @@ public class PodBridgeOptionsTests
         var configDict = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             { "PodBridge:Auth:Enabled", "true" },
-            { "PodBridge:Auth:Username", "testuser" },
-            { "PodBridge:Auth:Password", "testpass" },
+            { "PodBridge:Auth:UsernameHash", "210000.dGVzdC1zYWx0.dGVzdC1oYXNo" },
+            { "PodBridge:Auth:PasswordHash", "210000.b3RoZXItc2FsdA==.b3RoZXItaGFzaA==" },
         };
 
         var config = new ConfigurationBuilder()
@@ -86,8 +86,8 @@ public class PodBridgeOptionsTests
 
         // Assert
         testee.Auth.Enabled.Should().BeTrue();
-        testee.Auth.Username.Should().Be("testuser");
-        testee.Auth.Password.Should().Be("testpass");
+        testee.Auth.UsernameHash.Should().Be("210000.dGVzdC1zYWx0.dGVzdC1oYXNo");
+        testee.Auth.PasswordHash.Should().Be("210000.b3RoZXItc2FsdA==.b3RoZXItaGFzaA==");
     }
 
     [Test]
@@ -162,14 +162,14 @@ public class PodBridgeOptionsTests
         // Arrange
         var options = new PodBridgeOptionsBuilder()
             .WithDefaults()
-            .WithAuth(enabled: true, username: null, password: "password")
+            .WithAuth(enabled: true, usernameHash: null, passwordHash: "210000.c2FsdA==.aGFzaA==")
             .Build();
 
         // Act
         var results = options.Validate(new ValidationContext(options)).ToList();
 
         // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("Auth.Username"));
+        results.Should().Contain(r => r.ErrorMessage!.Contains("Auth.UsernameHash"));
     }
 
     [Test]
@@ -178,14 +178,14 @@ public class PodBridgeOptionsTests
         // Arrange
         var options = new PodBridgeOptionsBuilder()
             .WithDefaults()
-            .WithAuth(enabled: true, username: "user", password: null)
+            .WithAuth(enabled: true, usernameHash: "210000.c2FsdA==.aGFzaA==", passwordHash: null)
             .Build();
 
         // Act
         var results = options.Validate(new ValidationContext(options)).ToList();
 
         // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("Auth.Password"));
+        results.Should().Contain(r => r.ErrorMessage!.Contains("Auth.PasswordHash"));
     }
 
     [Test]

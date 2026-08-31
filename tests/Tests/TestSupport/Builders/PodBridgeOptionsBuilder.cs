@@ -11,8 +11,8 @@ public sealed class PodBridgeOptionsBuilder
     private int _rateLimitingWindowMinutes = 5;
     private Uri? _graphQlEndpoint;
     private bool _authEnabled;
-    private string? _authUsername;
-    private string? _authPassword;
+    private string? _authUsernameHash;
+    private string? _authPasswordHash;
 
     public PodBridgeOptionsBuilder WithDefaults()
     {
@@ -22,8 +22,8 @@ public sealed class PodBridgeOptionsBuilder
         _rateLimitingWindowMinutes = 5;
         _graphQlEndpoint = new Uri("https://fixture.test/graphql");
         _authEnabled = false;
-        _authUsername = null;
-        _authPassword = null;
+        _authUsernameHash = null;
+        _authPasswordHash = null;
         return this;
     }
 
@@ -45,11 +45,11 @@ public sealed class PodBridgeOptionsBuilder
         return this;
     }
 
-    public PodBridgeOptionsBuilder WithAuth(bool enabled, string? username = null, string? password = null)
+    public PodBridgeOptionsBuilder WithAuth(bool enabled, string? usernameHash = null, string? passwordHash = null)
     {
         _authEnabled = enabled;
-        _authUsername = username;
-        _authPassword = password;
+        _authUsernameHash = usernameHash;
+        _authPasswordHash = passwordHash;
         return this;
     }
 
@@ -66,8 +66,8 @@ public sealed class PodBridgeOptionsBuilder
             Auth = new AuthOptions
             {
                 Enabled = _authEnabled,
-                Username = _authUsername ?? string.Empty,
-                Password = _authPassword ?? string.Empty,
+                UsernameHash = _authUsernameHash ?? string.Empty,
+                PasswordHash = _authPasswordHash ?? string.Empty,
             },
         };
     }

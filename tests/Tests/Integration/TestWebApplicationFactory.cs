@@ -10,6 +10,7 @@ using PodBridge.Logic.Caching;
 using PodBridge.Logic.Config;
 using PodBridge.Logic.Domain;
 using PodBridge.Logic.EpisodeSourcing;
+using PodBridge.Logic.Security;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Integration;
@@ -125,12 +126,15 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             settings.Add("PodBridge:Auth:Enabled", "true");
             if (!string.IsNullOrWhiteSpace(_authUsername))
             {
-                settings.Add("PodBridge:Auth:Username", _authUsername);
+                // Hashed here (rather than accepting a pre-hashed value) so callers can keep passing the
+                // plaintext credentials a real client would authenticate with - matching CredentialHasher's
+                // production usage in BasicAuthenticationHandler.
+                settings.Add("PodBridge:Auth:UsernameHash", CredentialHasher.Hash(_authUsername));
             }
 
             if (!string.IsNullOrWhiteSpace(_authPassword))
             {
-                settings.Add("PodBridge:Auth:Password", _authPassword);
+                settings.Add("PodBridge:Auth:PasswordHash", CredentialHasher.Hash(_authPassword));
             }
         }
 

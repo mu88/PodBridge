@@ -1,11 +1,11 @@
 using System.Net.Http.Headers;
 using System.Security.Claims;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using PodBridge.Logic.Config;
+using PodBridge.Logic.Security;
 
 namespace PodBridge.Api.Authentication;
 
@@ -64,16 +64,10 @@ public sealed class BasicAuthenticationHandler(
         return base.HandleChallengeAsync(properties);
     }
 
-    private static bool FixedTimeEquals(string actual, string expected)
-    {
-        var actualBytes = Encoding.UTF8.GetBytes(actual);
-        var expectedBytes = Encoding.UTF8.GetBytes(expected);
-        return CryptographicOperations.FixedTimeEquals(actualBytes, expectedBytes);
-    }
-
     private bool IsValidCredentials(string username, string password)
     {
         var configuredAuth = podBridgeOptions.Value.Auth;
-        return FixedTimeEquals(username, configuredAuth.Username) && FixedTimeEquals(password, configuredAuth.Password);
+        return CredentialHasher.Verify(username, configuredAuth.UsernameHash) &&
+               CredentialHasher.Verify(password, configuredAuth.PasswordHash);
     }
 }
