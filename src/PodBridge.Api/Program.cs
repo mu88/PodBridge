@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
 using mu88.Shared.OpenTelemetry;
-using OpenTelemetry.Instrumentation.AspNetCore;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using PodBridge.Api;
@@ -31,25 +30,11 @@ builder.Configuration.AddJsonFile(externalConfigFilePath, optional: true, reload
 
 builder.Services.ConfigureOpenTelemetry("podbridge", builder.Configuration);
 
-// The /healthz endpoint is polled every ~10s by the hosting platform. mu88.Shared's ConfigureOpenTelemetry
-// call doesn't expose a Filter hook for its AddAspNetCoreInstrumentation() call, but .NET's Options pattern
-// is additive across the whole IServiceCollection, so this independently-registered Configure<> is merged
-// in when the TracerProvider is built - no mu88.Shared change needed to drop this noise from traces.
-builder.Services.Configure<AspNetCoreTraceInstrumentationOptions>(
-    options => options.Filter = httpContext => httpContext.Request.Path != "/healthz");
-
 builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddSource(Observability.Source.Name))
-    .WithMetrics(metrics => metrics
-        .AddMeter(Observability.MeterName)
-
-        // Surfaces dotnet.health_check.reports / dotnet.health_check.unhealthy_checks counters via the
-        // OTLP pipeline mu88.Shared already configured - the underlying publisher runs on its own timer,
-        // decoupled from how often the platform actually polls /healthz.
-        .AddMeter("Microsoft.Extensions.Diagnostics.HealthChecks"));
+    .WithMetrics(metrics => metrics.AddMeter(Observability.MeterName));
 
 builder.Services.AddHealthChecks();
-builder.Services.AddTelemetryHealthCheckPublisher();
 builder.Services.Configure<HealthCheckPublisherOptions>(options => options.Period = TimeSpan.FromMinutes(1));
 builder.Services.AddHttpContextAccessor();
 builder.Services.RegisterPodBridgeServices(builder.Configuration);
