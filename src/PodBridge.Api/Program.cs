@@ -1,19 +1,22 @@
 // Stryker disable all : Program.cs is the ASP.NET Core composition root; DI wiring and middleware configuration mutations are not meaningful at unit level
 using System.Diagnostics.CodeAnalysis;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Options;
+using Microsoft.OpenApi;
 using mu88.Shared.OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using PodBridge.Api;
 using PodBridge.Api.Authentication;
 using PodBridge.Api.Components;
+using PodBridge.Api.Components.Pages;
 using PodBridge.Api.Endpoints;
 using PodBridge.Logic;
 using PodBridge.Logic.Config;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,11 +41,13 @@ builder.Services.AddHealthChecks();
 builder.Services.Configure<HealthCheckPublisherOptions>(options => options.Period = TimeSpan.FromMinutes(1));
 builder.Services.AddHttpContextAccessor();
 builder.Services.RegisterPodBridgeServices(builder.Configuration);
+builder.Services.AddPodBridgeAuthentication();
 builder.Services.AddRateLimiter(rateLimiterOptions =>
 {
     rateLimiterOptions.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
     rateLimiterOptions.AddPolicy("feed-endpoint", CreateRateLimitPartition);
     rateLimiterOptions.AddPolicy("podcasts-endpoint", CreateRateLimitPartition);
+    rateLimiterOptions.AddPolicy("login-endpoint", CreateLoginRateLimitPartition);
 
     static RateLimitPartition<string> CreateRateLimitPartition(HttpContext context)
     {
@@ -57,15 +62,65 @@ builder.Services.AddRateLimiter(rateLimiterOptions =>
                 QueueLimit = 0,
             });
     }
-});
 
-builder.Services
-    .AddAuthentication(BasicAuthenticationHandler.SchemeName)
-    .AddScheme<AuthenticationSchemeOptions, BasicAuthenticationHandler>(BasicAuthenticationHandler.SchemeName, null);
-builder.Services.AddAuthorization();
+    // Separate from CreateRateLimitPartition/RateLimitingPermitLimit above: brute-force login
+    // protection needs a much stricter threshold than legitimate podcatcher API polling, so the
+    // login endpoint gets its own, independently configurable rate limit (see AuthOptions).
+    static RateLimitPartition<string> CreateLoginRateLimitPartition(HttpContext context)
+    {
+        var options = context.RequestServices.GetRequiredService<IOptionsMonitor<PodBridgeOptions>>().CurrentValue;
+        return RateLimitPartition.GetFixedWindowLimiter(
+            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = options.Auth.RateLimitingPermitLimit,
+                Window = TimeSpan.FromMinutes(options.Auth.RateLimitingWindowMinutes),
+                QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
+                QueueLimit = 0,
+            });
+    }
+});
 
 builder.Services.AddAntiforgery(options => options.Cookie.Path = "/");
 builder.Services.AddRazorComponents();
+builder.Services.AddOpenApi("v1", options =>
+{
+    options.ShouldInclude = description =>
+        description.RelativePath is not null &&
+        description.RelativePath.StartsWith("api/", StringComparison.OrdinalIgnoreCase);
+
+    options.AddDocumentTransformer((document, _, _) =>
+    {
+        document.Info = new OpenApiInfo
+        {
+            Title = "PodBridge API",
+            Version = "v1",
+            Description = "RSS and JSON endpoints for configured podcasts.",
+        };
+
+        document.Components ??= new OpenApiComponents();
+        document.Components.SecuritySchemes = new Dictionary<string, IOpenApiSecurityScheme>(StringComparer.Ordinal)
+        {
+            ["basicAuth"] = new OpenApiSecurityScheme
+            {
+                Type = SecuritySchemeType.Http,
+                Scheme = "basic",
+                Description = "Enter the same username and password that podcatchers use for /api requests.",
+            },
+        };
+
+        foreach (var operation in document.Paths.Values.SelectMany(pathItem => pathItem.Operations!.Values))
+        {
+            operation.Security ??= [];
+            operation.Security.Add(new OpenApiSecurityRequirement
+            {
+                [new OpenApiSecuritySchemeReference("basicAuth", document)] = [],
+            });
+        }
+
+        return Task.CompletedTask;
+    });
+});
 
 var app = builder.Build();
 
@@ -89,54 +144,47 @@ forwardedHeadersOptions.KnownIPNetworks.Clear();
 forwardedHeadersOptions.KnownProxies.Clear();
 app.UseForwardedHeaders(forwardedHeadersOptions);
 
-app.Use(async (context, next) =>
-{
-    context.Response.Headers.Append("X-Frame-Options", "DENY");
-    context.Response.Headers.Append("X-Content-Type-Options", "nosniff");
-    context.Response.Headers.Append("Referrer-Policy", "no-referrer");
-
-    // img-src allows any https origin because podcast cover art is hotlinked from whatever
-    // upstream host the configured GraphQL endpoint returns (not fixed to one domain).
-    context.Response.Headers.ContentSecurityPolicy = "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:";
-    await next();
-});
-
-// Required so that requests for undefined routes (e.g. a mistyped URL) render the Blazor NotFound page
-// instead of an empty 404 response. Router.NotFoundPage alone only handles NavigationManager.NotFound()
-// calls from within already-routed components, not requests that never match any endpoint.
-app.UseStatusCodePagesWithReExecute("/not-found");
+app.UseSecurityHeaders();
 
 app.UseRouting();
 
 // UseRateLimiter must run after UseRouting so endpoint metadata (RequireRateLimiting) is available.
 app.UseRateLimiter();
 
-if (resolvedOptions.Auth.Enabled)
-{
-    app.UseAuthentication();
-    app.UseAuthorization();
-}
-
+app.UsePodBridgeAuthentication(resolvedOptions.Auth.Enabled);
 app.UseAntiforgery();
+
+app.MapPodBridgeLogoutEndpoint(resolvedOptions);
 
 // UI (Blazor pages/static assets) stays at the root so the dashboard is reachable at the root path,
 // while the JSON/RSS API is grouped under /api to keep the two surfaces unambiguous.
-RouteGroupBuilder CreateProtectedGroup(string prefix)
-{
-    return resolvedOptions.Auth.Enabled
-        ? app.MapGroup(prefix).RequireAuthorization()
-        : app.MapGroup(prefix);
-}
+var protectedUiEndpoints = app.MapPodBridgeProtectedGroup(string.Empty, PodBridgeAuthorizationPolicies.Ui, resolvedOptions.Auth.Enabled);
+var protectedApiEndpoints = app.MapPodBridgeProtectedGroup("/api", PodBridgeAuthorizationPolicies.Api, resolvedOptions.Auth.Enabled);
 
-var protectedEndpoints = CreateProtectedGroup(string.Empty);
-var protectedApiEndpoints = CreateProtectedGroup("/api");
-
-protectedEndpoints.MapStaticAssets();
+app.MapStaticAssets();
 app.MapHealthChecks("/healthz");
+app.MapOpenApi("/openapi/{documentName}.json");
+app.MapScalarApiReference("/scalar", (options, httpContext) =>
+{
+    var pathBase = httpContext.Request.PathBase.Value;
+    var openApiRoutePattern = string.IsNullOrEmpty(pathBase)
+        ? "/openapi/{documentName}.json"
+        : $"{pathBase}/openapi/{{documentName}}.json";
+
+    options.WithTitle("PodBridge API Reference")
+        .WithOpenApiRoutePattern(openApiRoutePattern)
+        .AddDocument("v1", "PodBridge API")
+        .AddPreferredSecuritySchemes("basicAuth")
+        .DisableAgent();
+});
 
 protectedApiEndpoints.MapPodcastEndpoints();
+protectedUiEndpoints.MapRazorComponents<App>();
 
-protectedEndpoints.MapRazorComponents<App>();
+// Renders the Blazor NotFound page for requests that never match any endpoint (e.g. a mistyped URL).
+// The Blazor Router's own NotFound handling only covers NavigationManager.NotFound() calls from
+// already-routed components, not requests that never reach the Blazor pipeline in the first place.
+app.MapFallback(() => new RazorComponentResult<NotFoundPage>() { StatusCode = StatusCodes.Status404NotFound });
 
 await app.RunAsync();
 

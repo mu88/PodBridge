@@ -25,6 +25,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     private readonly bool _authEnabled;
     private readonly string? _authUsername;
     private readonly string? _authPassword;
+    private readonly int? _authRateLimitingPermitLimit;
+    private readonly int? _authRateLimitingWindowMinutes;
     private readonly string? _pathBase;
 
     public TestWebApplicationFactory(
@@ -36,6 +38,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         bool authEnabled = false,
         string? authUsername = null,
         string? authPassword = null,
+        int? authRateLimitingPermitLimit = null,
+        int? authRateLimitingWindowMinutes = null,
         string? pathBase = null)
     {
         _testPodcast = testPodcast;
@@ -46,11 +50,14 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         _authEnabled = authEnabled;
         _authUsername = authUsername;
         _authPassword = authPassword;
+        _authRateLimitingPermitLimit = authRateLimitingPermitLimit;
+        _authRateLimitingWindowMinutes = authRateLimitingWindowMinutes;
         _pathBase = pathBase;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
+        builder.UseEnvironment("Testing");
         builder.ConfigureAppConfiguration((context, config) => config.AddInMemoryCollection(BuildConfigurationSettings()));
 
         builder.ConfigureServices(services =>
@@ -135,6 +142,16 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             if (!string.IsNullOrWhiteSpace(_authPassword))
             {
                 settings.Add("PodBridge:Auth:PasswordHash", CredentialHasher.Hash(_authPassword));
+            }
+
+            if (_authRateLimitingPermitLimit is not null)
+            {
+                settings.Add("PodBridge:Auth:RateLimitingPermitLimit", _authRateLimitingPermitLimit.Value.ToString(CultureInfo.InvariantCulture));
+            }
+
+            if (_authRateLimitingWindowMinutes is not null)
+            {
+                settings.Add("PodBridge:Auth:RateLimitingWindowMinutes", _authRateLimitingWindowMinutes.Value.ToString(CultureInfo.InvariantCulture));
             }
         }
 

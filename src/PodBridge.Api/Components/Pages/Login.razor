@@ -1,0 +1,104 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@attribute [EnableRateLimiting("login-endpoint")]
+@using Microsoft.AspNetCore.Authentication
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.RateLimiting
+@using Microsoft.Extensions.Options
+@using PodBridge.Api.Authentication
+@using PodBridge.Logic.Config
+@inject IOptions<PodBridgeOptions> Options
+@inject NavigationManager NavigationManager
+
+<PageTitle>PodBridge - Sign In</PageTitle>
+
+<section class="login-shell">
+    <div class="surface-card login-card">
+        <div class="login-card__header">
+            <span class="site-kicker">Private podcast bridge</span>
+            <h2>Sign in</h2>
+            <p>Use the same credentials that your podcatcher uses for the protected API.</p>
+        </div>
+
+        <EditForm Model="Input" FormName="login" OnSubmit="HandleLoginAsync">
+            @if (errorMessage is not null)
+            {
+                <p class="form-error" role="alert">@errorMessage</p>
+            }
+
+            <input type="hidden" name="Input.ReturnUrl" value="@Input!.ReturnUrl" />
+
+            <div class="form-field">
+                <label for="login-username">Username</label>
+                <InputText id="login-username" @bind-Value="Input!.Username" autocomplete="username" />
+            </div>
+
+            <div class="form-field">
+                <label for="login-password">Password</label>
+                <InputText id="login-password" @bind-Value="Input!.Password" type="password" autocomplete="current-password" />
+            </div>
+
+            <button type="submit" class="action-link action-link--accent login-submit">Sign in</button>
+        </EditForm>
+    </div>
+</section>
+
+@code {
+    private string? errorMessage;
+
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    [SupplyParameterFromForm]
+    private LoginRequest? Input { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ReturnUrl")]
+    private string? ReturnUrlFromQuery { get; set; }
+
+    protected override void OnInitialized()
+    {
+        Input ??= new LoginRequest();
+
+        // EditForm's default self-post action doesn't carry the query string, so ReturnUrl must
+        // travel as a hidden form field to still be available once HandleLoginAsync runs.
+        Input.ReturnUrl ??= ReturnUrlFromQuery;
+    }
+
+    protected override void OnParametersSet()
+    {
+        if (!Options.Value.Auth.Enabled)
+        {
+            NavigationManager.NavigateTo(
+                ReturnUrlHelper.GetApplicationRoot(HttpContext.Request.PathBase),
+                forceLoad: true);
+        }
+    }
+
+    private async Task HandleLoginAsync(EditContext editContext)
+    {
+        var safeDestination = ReturnUrlHelper.GetSafeDestination(Input!.ReturnUrl, HttpContext.Request.PathBase);
+
+        if (string.IsNullOrWhiteSpace(Input.Username))
+        {
+            errorMessage = "Username is required.";
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(Input.Password))
+        {
+            errorMessage = "Password is required.";
+            return;
+        }
+
+        if (!ConfiguredCredentialValidator.AreValid(Options.Value.Auth, Input.Username, Input.Password))
+        {
+            errorMessage = "Invalid username or password.";
+            return;
+        }
+
+        var principal = PodBridgeClaimsPrincipalFactory.Create(PodBridgeAuthenticationSchemes.UiCookie, Input.Username);
+
+        await HttpContext.SignInAsync(PodBridgeAuthenticationSchemes.UiCookie, principal);
+        NavigationManager.NavigateTo(safeDestination, forceLoad: true);
+    }
+}

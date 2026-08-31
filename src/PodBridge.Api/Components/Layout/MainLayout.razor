@@ -1,16 +1,32 @@
 @using PodBridge.Api.Components.Layout
 @namespace PodBridge.Api.Components.Layout
 @inherits LayoutComponentBase
+@using Microsoft.Extensions.Options
+@using PodBridge.Logic.Config
 @inject IHostEnvironment HostEnvironment
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IOptions<PodBridgeOptions> Options
 
 <div class="app-shell">
     <header class="site-header">
-        <div class="shell-container">
+        <div class="shell-container site-header-content">
             <nav class="site-nav">
                 <span class="site-kicker">Private podcast bridge</span>
                 <h1 class="site-title">PodBridge</h1>
                 <span class="site-subtitle">Republish structured JSON metadata as clean RSS feeds.</span>
             </nav>
+
+            @if (Options.Value.Auth.Enabled && HttpContextAccessor.HttpContext?.User.Identity?.IsAuthenticated == true)
+            {
+                <div class="site-actions">
+                    <span class="site-user">Signed in as @HttpContextAccessor.HttpContext.User.Identity!.Name</span>
+
+                    <form class="logout-form" method="post" action="@LogoutPath">
+                        <input type="hidden" name="ReturnUrl" value="@CurrentReturnUrl" />
+                        <button type="submit" class="action-link">Log out</button>
+                    </form>
+                </div>
+            }
         </div>
     </header>
 
@@ -31,3 +47,23 @@
     <a href="" class="reload">Reload</a>
     <a class="dismiss">🗙</a>
 </div>
+
+@code {
+    private string LogoutPath
+    {
+        get
+        {
+            var pathBase = HttpContextAccessor.HttpContext?.Request.PathBase.Value;
+            return string.IsNullOrEmpty(pathBase) ? "/logout" : $"{pathBase}/logout";
+        }
+    }
+
+    private string CurrentReturnUrl
+    {
+        get
+        {
+            var request = HttpContextAccessor.HttpContext!.Request;
+            return $"{request.PathBase}{request.Path}{request.QueryString}";
+        }
+    }
+}

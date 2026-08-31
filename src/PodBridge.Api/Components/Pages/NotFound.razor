@@ -1,6 +1,8 @@
 @page "/not-found"
+@using Microsoft.AspNetCore.Authorization
 @layout MainLayout
 @using PodBridge.Api.Components.Layout
+@attribute [AllowAnonymous]
 
 <PageTitle>Not Found</PageTitle>
 

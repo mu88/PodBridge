@@ -1,11 +1,9 @@
 using System.Net.Http.Headers;
-using System.Security.Claims;
 using System.Text;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Options;
 using PodBridge.Logic.Config;
-using PodBridge.Logic.Security;
 
 namespace PodBridge.Api.Authentication;
 
@@ -20,15 +18,6 @@ public sealed class BasicAuthenticationHandler(
 
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
-        // Antiforgery (required by Blazor's Razor Components endpoints) calls AuthenticateAsync() on every
-        // request regardless of whether app.UseAuthentication() is wired into the pipeline. When Auth is
-        // disabled, NoResult (rather than Fail) avoids logging misleading "authentication failed" messages
-        // for requests that were never expected to carry credentials in the first place.
-        if (!podBridgeOptions.Value.Auth.Enabled)
-        {
-            return Task.FromResult(AuthenticateResult.NoResult());
-        }
-
         if (!Request.Headers.TryGetValue("Authorization", out var headerValue) ||
             !AuthenticationHeaderValue.TryParse(headerValue, out var authHeader) ||
             !string.Equals(authHeader.Scheme, SchemeName, StringComparison.OrdinalIgnoreCase) ||
@@ -53,8 +42,8 @@ public sealed class BasicAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.Fail("Invalid username or password"));
         }
 
-        var identity = new ClaimsIdentity([new Claim(ClaimTypes.Name, credentials[0])], SchemeName);
-        var ticket = new AuthenticationTicket(new ClaimsPrincipal(identity), SchemeName);
+        var principal = PodBridgeClaimsPrincipalFactory.Create(SchemeName, credentials[0]);
+        var ticket = new AuthenticationTicket(principal, SchemeName);
         return Task.FromResult(AuthenticateResult.Success(ticket));
     }
 
@@ -66,8 +55,6 @@ public sealed class BasicAuthenticationHandler(
 
     private bool IsValidCredentials(string username, string password)
     {
-        var configuredAuth = podBridgeOptions.Value.Auth;
-        return CredentialHasher.Verify(username, configuredAuth.UsernameHash) &&
-               CredentialHasher.Verify(password, configuredAuth.PasswordHash);
+        return ConfiguredCredentialValidator.AreValid(podBridgeOptions.Value.Auth, username, password);
     }
 }

@@ -10,4 +10,13 @@ public sealed class AuthOptions
     public string UsernameHash { get; init; } = string.Empty;
 
     public string PasswordHash { get; init; } = string.Empty;
+
+    // Deliberately separate from PodBridgeOptions.RateLimitingPermitLimit/RateLimitingWindowMinutes:
+    // brute-force login protection needs a much stricter threshold than legitimate podcatcher API
+    // polling, so the two must be independently configurable. Not [Range]-validated here because
+    // PodBridgeOptions.ValidateDataAnnotations() doesn't recurse into nested options objects; an
+    // out-of-range value is instead rejected by ASP.NET Core's RateLimiter at startup.
+    public int RateLimitingPermitLimit { get; init; } = 5;
+
+    public int RateLimitingWindowMinutes { get; init; } = 15;
 }

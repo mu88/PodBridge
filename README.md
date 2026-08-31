@@ -81,13 +81,19 @@ Configure the GraphQL endpoint and podcasts in `appsettings.json` under the `Pod
 - `Podcasts`: List of podcast feeds to expose.
 - `Podcasts[*].PodcastId`: Internal feed slug used in `/api/podcasts/{podcastId}` and the `/podcasts/{podcastId}` overview page.
 - `Podcasts[*].ShowId`: Upstream GraphQL show identifier. Plain numeric IDs and URN-style IDs are both supported.
-- `Auth.Enabled`: Optional boolean flag to enable HTTP Basic Authentication (RFC 7617) on all endpoints except `/healthz`. Default: `false`.
+- `Auth.Enabled`: Optional boolean flag to enable authentication. Default: `false`.
 - `Auth.UsernameHash`: PBKDF2 hash of the Basic Auth username (required if `Auth.Enabled` is true). Generate it with `Scripts/New-CredentialHash.ps1` - the plaintext username is never stored.
 - `Auth.PasswordHash`: PBKDF2 hash of the Basic Auth password (required if `Auth.Enabled` is true). Generate it with `Scripts/New-CredentialHash.ps1` - the plaintext password is never stored.
 
 #### Authentication
 
-HTTP Basic Authentication is opt-in via the `Auth.Enabled` configuration flag. When enabled, all endpoints except `/healthz` require valid credentials.
+Authentication is opt-in via the `Auth.Enabled` configuration flag. When enabled, the web UI uses a cookie-backed login page and the API keeps HTTP Basic Authentication for podcatchers and other API clients.
+
+The following endpoints stay public:
+
+- `/healthz`
+- `/openapi/v1.json`
+- `/scalar`
 
 Credentials are configured as PBKDF2 hashes, not plaintext, so the actual username/password never needs to
 exist in configuration, a secret store, or a deployment platform's dashboard - only the account owner needs
@@ -122,6 +128,8 @@ to know them. Generate the hashes once with `Scripts/New-CredentialHash.ps1`:
 
 **Client usage:**
 
+Browser users sign in via the `/login` form before accessing the web UI.
+
 Podcast clients that support HTTP Basic Authentication (e.g., AntennaPod, Pocket Casts) can subscribe directly with credentials embedded in the URL:
 
 ```
@@ -145,6 +153,10 @@ docker run -p 8080:8080 -e ASPNETCORE_ENVIRONMENT=Production podbridge-api:local
 - `GET /api/podcasts/{podcastId}` — Returns the cached podcast feed for the specified show; RSS 2.0 + iTunes XML by default, or JSON with full episode details via `?format=json`
 - `GET /api/podcasts` — Returns a JSON array with podcast metadata and public feed URLs
 - `GET /healthz` — Health check endpoint (returns 200 OK if healthy)
+- `GET /login` — Login page for the web UI
+- `POST /logout` — Ends the current web UI session
+- `GET /openapi/v1.json` — Public OpenAPI document for the protected API
+- `GET /scalar` — Public Scalar reference UI for the protected API
 - `GET /` and `GET /podcasts/{podcastId}` — Web UI: overview and per-podcast episode list
 
 ## Security

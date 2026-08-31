@@ -1,0 +1,22 @@
+@* Rendered via app.MapFallback in Program.cs for requests that never match any endpoint (e.g. a
+   mistyped URL). Such requests never reach App.razor's <Router>, so this component provides its
+   own standalone HTML shell - mirroring App.razor's <head> - to still get the app's styling. *@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PodBridge - Not Found</title>
+    <base href="/" />
+    <link rel="stylesheet" href="app.css" />
+    <link rel="stylesheet" href="PodBridge.Api.styles.css" />
+</head>
+<body>
+    <section class="login-shell">
+        <div class="surface-card login-card">
+            <h2>Not Found</h2>
+            <p>Sorry, there's nothing at this address.</p>
+        </div>
+    </section>
+</body>
+</html>

@@ -11,11 +11,23 @@ internal static class PodcastEndpoints
     public static void MapPodcastEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/podcasts/{podcastId}", GetPodcastFeed)
+            .WithTags("Podcasts")
+            .WithName("GetPodcastFeed")
+            .WithSummary("Gets a cached podcast feed.")
+            .WithDescription("Returns RSS 2.0 + iTunes XML by default. Add ?format=json to retrieve the cached feed as JSON.")
+            .Produces(StatusCodes.Status200OK, contentType: RssXmlNamespaces.RssMediaType)
+            .Produces<PodcastDetailsResponse>(StatusCodes.Status200OK, "application/json")
+            .Produces(StatusCodes.Status404NotFound)
+            .Produces(StatusCodes.Status503ServiceUnavailable, contentType: "text/plain")
             .RequireRateLimiting("feed-endpoint");
 
         endpoints.MapGet("/podcasts", GetPodcasts)
-            .RequireRateLimiting("podcasts-endpoint")
-            .WithName("GetPodcasts");
+            .WithTags("Podcasts")
+            .WithName("GetPodcasts")
+            .WithSummary("Lists all configured podcasts.")
+            .WithDescription("Returns one JSON item per configured podcast with the public feed URL and a cached or placeholder title.")
+            .Produces<IReadOnlyList<PodcastSummaryResponse>>(StatusCodes.Status200OK, "application/json")
+            .RequireRateLimiting("podcasts-endpoint");
     }
 
     private static IResult GetPodcastFeed(
@@ -52,32 +64,36 @@ internal static class PodcastEndpoints
     private static IResult BuildJsonFeed(string podcastId, CachedPodcast resolvedPodcast, string feedUrl)
     {
         var podcast = resolvedPodcast.Podcast;
-        return Results.Json(new
+
+        var response = new PodcastDetailsResponse
         {
-            podcastId,
-            podcast.Title,
-            podcast.Description,
-            podcast.Author,
-            podcast.Language,
-            podcast.ImageUrl,
-            podcast.Link,
-            resolvedPodcast.LastUpdated,
-            feedUrl,
-            episodes = podcast.Episodes
+            PodcastId = podcastId,
+            Title = podcast.Title,
+            Description = podcast.Description,
+            Author = podcast.Author,
+            Language = podcast.Language,
+            ImageUrl = podcast.ImageUrl,
+            Link = podcast.Link,
+            LastUpdated = resolvedPodcast.LastUpdated,
+            FeedUrl = feedUrl,
+            Episodes = podcast.Episodes
                 .OrderByDescending(episode => episode.PublishDate)
-                .Select(episode => new
+                .Select(episode => new PodcastEpisodeResponse
                 {
-                    episode.Guid,
-                    episode.Title,
-                    episode.Description,
-                    episode.PublishDate,
-                    episode.AudioUrl,
-                    episode.DurationSeconds,
-                    episode.ImageUrl,
-                    episode.EpisodeNumber,
-                    episode.Link,
-                }),
-        });
+                    Guid = episode.Guid,
+                    Title = episode.Title,
+                    Description = episode.Description,
+                    PublishDate = episode.PublishDate,
+                    AudioUrl = episode.AudioUrl,
+                    DurationSeconds = episode.DurationSeconds,
+                    ImageUrl = episode.ImageUrl,
+                    EpisodeNumber = episode.EpisodeNumber,
+                    Link = episode.Link,
+                })
+                .ToList(),
+        };
+
+        return Results.Json(response);
     }
 
     private static IResult BuildXmlFeed(CachedPodcast resolvedPodcast, string feedUrl)
@@ -99,11 +115,11 @@ internal static class PodcastEndpoints
             var cached = podcastCache.TryGetFull(podcast.PodcastId);
             var title = cached?.Podcast.Title ?? $"Podcast {podcast.ShowId} - not yet fetched";
 
-            return new
+            return new PodcastSummaryResponse
             {
-                podcastId = podcast.PodcastId,
-                title,
-                feedUrl,
+                PodcastId = podcast.PodcastId,
+                Title = title,
+                FeedUrl = feedUrl,
             };
         }).ToList();
 
