@@ -36,8 +36,16 @@ public sealed record RssFeed
                 Description = podcast.Description ?? podcast.Title,
                 Language = podcast.Language,
                 Image = podcast.ImageUrl is not null
-                    ? new RssImage { Href = podcast.ImageUrl.OriginalString }
+                    ? new RssImage
+                    {
+                        Url = podcast.ImageUrl.OriginalString,
+                        Title = podcast.Title,
+                        Link = podcast.Link?.OriginalString ?? string.Empty,
+                    }
                     : null,
+                ItunesImage = podcast.ImageUrl is null
+                    ? null
+                    : new RssItunesImage { Href = podcast.ImageUrl.OriginalString },
                 ItunesAuthor = podcast.Author ?? podcast.Title,
                 ItunesType = "episodic",
                 ItunesExplicit = "no",
@@ -91,6 +99,9 @@ public sealed record RssChannel
 
     [XmlElement("image")]
     public RssImage? Image { get; init; }
+
+    [XmlElement("image", Namespace = RssXmlNamespaces.Itunes)]
+    public RssItunesImage? ItunesImage { get; init; }
 
     [XmlElement("author", Namespace = RssXmlNamespaces.Itunes)]
     public string ItunesAuthor { get; init; } = string.Empty;
@@ -149,8 +160,14 @@ public sealed class RssEnclosure
 
 public sealed class RssImage
 {
-    [XmlAttribute("href")]
-    public string Href { get; set; } = string.Empty;
+    [XmlElement("url")]
+    public string Url { get; set; } = string.Empty;
+
+    [XmlElement("title")]
+    public string Title { get; set; } = string.Empty;
+
+    [XmlElement("link")]
+    public string Link { get; set; } = string.Empty;
 }
 
 public sealed class RssItunesImage

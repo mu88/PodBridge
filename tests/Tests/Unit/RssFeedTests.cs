@@ -102,6 +102,27 @@ public class RssFeedTests
 
         // Assert
         feed.Channel.Image.Should().BeNull();
+        feed.Channel.ItunesImage.Should().BeNull();
+    }
+
+    [Test]
+    public void MapFrom_PodcastWithImageUrl_SetsChannelImageAndItunesImage()
+    {
+        // Arrange
+        var podcast = new PodcastBuilder()
+            .WithDefaults()
+            .WithTitle("Fixture Podcast")
+            .Build() with { ImageUrl = new Uri("https://fixture.test/podcast.jpg") };
+
+        // Act
+        var feed = RssFeed.MapFrom(podcast);
+
+        // Assert
+        feed.Channel.Image.Should().NotBeNull();
+        feed.Channel.Image!.Url.Should().Be("https://fixture.test/podcast.jpg");
+        feed.Channel.Image.Title.Should().Be("Fixture Podcast");
+        feed.Channel.ItunesImage.Should().NotBeNull();
+        feed.Channel.ItunesImage!.Href.Should().Be("https://fixture.test/podcast.jpg");
     }
 
     [Test]
