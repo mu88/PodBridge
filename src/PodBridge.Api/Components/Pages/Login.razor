@@ -68,15 +68,13 @@
     {
         if (!Options.Value.Auth.Enabled)
         {
-            NavigationManager.NavigateTo(
-                ReturnUrlHelper.GetApplicationRoot(HttpContext.Request.PathBase),
-                forceLoad: true);
+            NavigationManager.NavigateTo("/", forceLoad: true);
         }
     }
 
     private async Task HandleLoginAsync(EditContext editContext)
     {
-        var safeDestination = ReturnUrlHelper.GetSafeDestination(Input!.ReturnUrl, HttpContext.Request.PathBase);
+        var safeDestination = ReturnUrlHelper.GetSafeDestination(Input!.ReturnUrl);
 
         if (string.IsNullOrWhiteSpace(Input.Username))
         {

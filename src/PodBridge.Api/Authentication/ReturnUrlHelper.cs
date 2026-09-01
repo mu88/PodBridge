@@ -1,32 +1,25 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.WebUtilities;
 
 namespace PodBridge.Api.Authentication;
 
 internal static class ReturnUrlHelper
 {
-    public static string GetApplicationRoot(PathString pathBase)
-    {
-        return pathBase.HasValue ? $"{pathBase}/" : "/";
-    }
+    private const string ApplicationRoot = "/";
 
-    public static string GetSafeDestination(string? returnUrl, PathString pathBase)
+    public static string GetSafeDestination(string? returnUrl)
     {
         return IsSafeLocalPath(returnUrl)
             ? returnUrl!
-            : GetApplicationRoot(pathBase);
+            : ApplicationRoot;
     }
 
-    public static string BuildLoginPath(PathString pathBase, string? returnUrl)
+    public static string BuildLoginPath(string? returnUrl)
     {
-        var loginPath = pathBase.HasValue ? $"{pathBase}/login" : "/login";
-        var safeDestination = GetSafeDestination(returnUrl, pathBase);
-
         return QueryHelpers.AddQueryString(
-            loginPath,
+            "/login",
             CookieAuthenticationDefaults.ReturnUrlParameter,
-            safeDestination);
+            GetSafeDestination(returnUrl));
     }
 
     private static bool IsSafeLocalPath(string? returnUrl)

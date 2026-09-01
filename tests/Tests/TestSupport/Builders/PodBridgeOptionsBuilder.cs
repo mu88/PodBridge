@@ -5,7 +5,6 @@ namespace Tests.TestSupport.Builders;
 public sealed class PodBridgeOptionsBuilder
 {
     private readonly List<PodcastConfig> _podcasts = [];
-    private string? _pathBase;
     private int _refreshIntervalMinutes = 60;
     private int _rateLimitingPermitLimit = 15;
     private int _rateLimitingWindowMinutes = 5;
@@ -16,7 +15,6 @@ public sealed class PodBridgeOptionsBuilder
 
     public PodBridgeOptionsBuilder WithDefaults()
     {
-        _pathBase = null;
         _refreshIntervalMinutes = 60;
         _rateLimitingPermitLimit = 15;
         _rateLimitingWindowMinutes = 5;
@@ -58,7 +56,6 @@ public sealed class PodBridgeOptionsBuilder
         return new PodBridgeOptions
         {
             Podcasts = _podcasts,
-            PathBase = _pathBase,
             RefreshIntervalMinutes = _refreshIntervalMinutes,
             RateLimitingPermitLimit = _rateLimitingPermitLimit,
             RateLimitingWindowMinutes = _rateLimitingWindowMinutes,

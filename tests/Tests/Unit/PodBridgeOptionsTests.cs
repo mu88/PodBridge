@@ -18,7 +18,6 @@ public class PodBridgeOptionsTests
         var configDict = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             { "PodBridge:RefreshIntervalMinutes", "120" },
-            { "PodBridge:PathBase", "/podcasts" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
             { "PodBridge:Podcasts:0:PodcastId", "show-1" },
             { "PodBridge:Podcasts:0:ShowId", "platform-show-1" },
@@ -35,7 +34,6 @@ public class PodBridgeOptionsTests
 
         // Assert
         testee.RefreshIntervalMinutes.Should().Be(120);
-        testee.PathBase.Should().Be("/podcasts");
         testee.GraphQlEndpoint.Should().Be(new Uri("https://fixture.test/graphql"));
         testee.Podcasts.Should().HaveCount(1);
         testee.Podcasts[0].PodcastId.Should().Be("show-1");

@@ -5,7 +5,6 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NUnit.Framework;
-using PodBridge.Api.Authentication;
 using PodBridge.Logic.Config;
 using Tests.TestSupport.Builders;
 
@@ -47,7 +46,7 @@ public sealed class LoginTests
 
         // Assert
         renderedLogin.Markup.Should().NotBeNull();
-        _navigationManager.LastUri.Should().Be(ReturnUrlHelper.GetApplicationRoot(PathString.Empty));
+        _navigationManager.LastUri.Should().Be("/");
         _navigationManager.LastForceLoad.Should().BeTrue();
     }
 

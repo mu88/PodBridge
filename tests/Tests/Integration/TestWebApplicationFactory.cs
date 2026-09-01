@@ -27,7 +27,6 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
     private readonly string? _authPassword;
     private readonly int? _authRateLimitingPermitLimit;
     private readonly int? _authRateLimitingWindowMinutes;
-    private readonly string? _pathBase;
 
     public TestWebApplicationFactory(
         Podcast? testPodcast = null,
@@ -39,8 +38,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         string? authUsername = null,
         string? authPassword = null,
         int? authRateLimitingPermitLimit = null,
-        int? authRateLimitingWindowMinutes = null,
-        string? pathBase = null)
+        int? authRateLimitingWindowMinutes = null)
     {
         _testPodcast = testPodcast;
         _prepopulateCache = prepopulateCache;
@@ -52,7 +50,6 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         _authPassword = authPassword;
         _authRateLimitingPermitLimit = authRateLimitingPermitLimit;
         _authRateLimitingWindowMinutes = authRateLimitingWindowMinutes;
-        _pathBase = pathBase;
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -112,11 +109,6 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             { "PodBridge:RefreshIntervalMinutes", "60" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
         };
-
-        if (!string.IsNullOrWhiteSpace(_pathBase))
-        {
-            settings.Add("PodBridge:PathBase", _pathBase);
-        }
 
         if (_rateLimitingPermitLimit is not null)
         {

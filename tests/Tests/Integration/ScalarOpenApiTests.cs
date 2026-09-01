@@ -57,42 +57,6 @@ public sealed class ScalarOpenApiTests
         basicAuthRequirement.ValueKind.Should().Be(JsonValueKind.Array);
     }
 
-    [Test]
-    public async Task GetScalar_WithPathBase_Returns200()
-    {
-        // Arrange
-        await using var factory = new TestWebApplicationFactory(
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass",
-            pathBase: "/podbridge");
-        using var client = CreateClient(factory);
-
-        // Act
-        using var response = await client.GetAsync("/podbridge/scalar/");
-
-        // Assert
-        response.Should().Be200Ok();
-    }
-
-    [Test]
-    public async Task GetOpenApiDocument_WithPathBase_Returns200()
-    {
-        // Arrange
-        await using var factory = new TestWebApplicationFactory(
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass",
-            pathBase: "/podbridge");
-        using var client = CreateClient(factory);
-
-        // Act
-        using var response = await client.GetAsync("/podbridge/openapi/v1.json");
-
-        // Assert
-        response.Should().Be200Ok();
-    }
-
     private static TestWebApplicationFactory CreateFactory()
     {
         return new TestWebApplicationFactory(

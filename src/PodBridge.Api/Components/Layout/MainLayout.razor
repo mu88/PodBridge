@@ -49,21 +49,14 @@
 </div>
 
 @code {
-    private string LogoutPath
-    {
-        get
-        {
-            var pathBase = HttpContextAccessor.HttpContext?.Request.PathBase.Value;
-            return string.IsNullOrEmpty(pathBase) ? "/logout" : $"{pathBase}/logout";
-        }
-    }
+    private const string LogoutPath = "/logout";
 
     private string CurrentReturnUrl
     {
         get
         {
             var request = HttpContextAccessor.HttpContext!.Request;
-            return $"{request.PathBase}{request.Path}{request.QueryString}";
+            return $"{request.Path}{request.QueryString}";
         }
     }
 }

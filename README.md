@@ -52,7 +52,6 @@ Configure the GraphQL endpoint and podcasts in `appsettings.json` under the `Pod
     "RefreshIntervalMinutes": 360,
     "RateLimitingPermitLimit": 15,
     "RateLimitingWindowMinutes": 5,
-    "PathBase": "",
     "GraphQlEndpoint": "https://example.org/graphql",
     "Auth": {
       "Enabled": false,
@@ -76,7 +75,6 @@ Configure the GraphQL endpoint and podcasts in `appsettings.json` under the `Pod
 - `RefreshIntervalMinutes`: Background refresh interval for episodes and pre-generated feeds.
 - `RateLimitingPermitLimit`: Maximum number of requests per remote IP and protected endpoint within the configured window. Default: `15`.
 - `RateLimitingWindowMinutes`: Fixed-window length for rate limiting on `/api/podcasts/{podcastId}` and `/api/podcasts`. Default: `5`.
-- `PathBase`: Optional application base path when hosted below the domain root.
 - `GraphQlEndpoint`: Absolute URI of the GraphQL endpoint used for show and episode lookups.
 - `Podcasts`: List of podcast feeds to expose.
 - `Podcasts[*].PodcastId`: Internal feed slug used in `/api/podcasts/{podcastId}` and the `/podcasts/{podcastId}` overview page.

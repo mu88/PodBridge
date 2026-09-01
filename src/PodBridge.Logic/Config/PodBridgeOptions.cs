@@ -15,8 +15,6 @@ public sealed class PodBridgeOptions : IValidatableObject
     [Range(1, 60)]
     public int RateLimitingWindowMinutes { get; init; } = 5;
 
-    public string? PathBase { get; init; }
-
     public Uri? GraphQlEndpoint { get; init; }
 
     public AuthOptions Auth { get; init; } = new();

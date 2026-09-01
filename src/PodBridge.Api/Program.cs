@@ -125,10 +125,6 @@ builder.Services.AddOpenApi("v1", options =>
 var app = builder.Build();
 
 var resolvedOptions = app.Services.GetRequiredService<IOptions<PodBridgeOptions>>().Value;
-if (!string.IsNullOrWhiteSpace(resolvedOptions.PathBase))
-{
-    app.UsePathBase(resolvedOptions.PathBase);
-}
 
 // Trust the immediate reverse proxy (e.g. a managed container platform's built-in front-end, or an
 // operator-provided nginx/Traefik/Caddy) so RemoteIpAddress - used by the rate limiter below - reflects
@@ -164,15 +160,10 @@ var protectedApiEndpoints = app.MapPodBridgeProtectedGroup("/api", PodBridgeAuth
 app.MapStaticAssets();
 app.MapHealthChecks("/healthz");
 app.MapOpenApi("/openapi/{documentName}.json");
-app.MapScalarApiReference("/scalar", (options, httpContext) =>
+app.MapScalarApiReference("/scalar", options =>
 {
-    var pathBase = httpContext.Request.PathBase.Value;
-    var openApiRoutePattern = string.IsNullOrEmpty(pathBase)
-        ? "/openapi/{documentName}.json"
-        : $"{pathBase}/openapi/{{documentName}}.json";
-
     options.WithTitle("PodBridge API Reference")
-        .WithOpenApiRoutePattern(openApiRoutePattern)
+        .WithOpenApiRoutePattern("/openapi/{documentName}.json")
         .AddDocument("v1", "PodBridge API")
         .AddPreferredSecuritySchemes("basicAuth")
         .DisableAgent();

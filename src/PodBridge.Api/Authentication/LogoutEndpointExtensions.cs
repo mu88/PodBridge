@@ -23,6 +23,6 @@ internal static class LogoutEndpointExtensions
     private static async Task<IResult> HandleLogoutAsync([FromForm] LogoutRequest request, HttpContext context)
     {
         await context.SignOutAsync(PodBridgeAuthenticationSchemes.UiCookie);
-        return TypedResults.Redirect(ReturnUrlHelper.BuildLoginPath(context.Request.PathBase, request.ReturnUrl));
+        return TypedResults.Redirect(ReturnUrlHelper.BuildLoginPath(request.ReturnUrl));
     }
 }
