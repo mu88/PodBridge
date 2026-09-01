@@ -38,6 +38,18 @@ public sealed class AppVersionProviderTests
         testee.DisplayVersion.Should().Be("1.4.2");
     }
 
+    [Test]
+    public void DisplayVersion_WithSourceRevisionSeparatorAsFirstCharacter_ReturnsEmptyString()
+    {
+        // Arrange: boundary case for the "index >= 0" check - a '+' at index 0 must still be treated
+        // as a separator (distinct from "not found", which is index -1), unlike a mid-string '+'.
+        var testee = new AppVersionProvider("+abcdef0");
+
+        // Assert
+        testee.DisplayVersion.Should().BeEmpty();
+        testee.FullVersion.Should().Be("+abcdef0");
+    }
+
     [TestCase(null)]
     [TestCase("")]
     [TestCase(" ")]

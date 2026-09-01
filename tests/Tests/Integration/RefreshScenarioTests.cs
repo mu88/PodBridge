@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Reflection;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -71,14 +72,21 @@ public sealed class RefreshScenarioTests
     [Test]
     public async Task RefreshAllShowsAsync_WithActivityListenerRegistered_RecordsActivityTagsOnBothSpans()
     {
-        // Arrange: registers a listener so Observability.Source.StartActivity() returns a non-null
+        // Arrange: registers listeners so Observability.Source.StartActivity() returns a non-null
         // Activity, exercising the "activity is present" branch of the activity?.SetTag(...) calls in
         // both RefreshAllShowsAsync and TryRefreshPodcastAsync (which is null in every other test here,
-        // since no listener is registered for PodBridge's ActivitySource by default).
+        // since no listener is registered for PodBridge's ActivitySource by default). The recorded tag
+        // *values*, activity name, and metric counter measurements are asserted too, not just that a
+        // listener is present, so mutations to the counted values (platform/podcast/success/failure
+        // counts), the tagged podcast id, the activity name, and the Observability.Record*(...) calls
+        // (Counter.Add(...), invisible on any Activity) are all caught.
         using var activityListenerScope = new ActivityListenerScope();
+        using var meterListenerScope = new MeterListenerScope();
         var showConfig = new PodcastConfigBuilder().WithDefaults().WithPodcastId("show1").Build();
         var podBridgeOptions = new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(showConfig).Build();
-        var podcast = new PodcastBuilder().WithDefaults().Build();
+        var episode1 = new EpisodeBuilder().WithDefaults().Build();
+        var episode2 = new EpisodeBuilder().WithDefaults().Build();
+        var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode1, episode2).Build();
         _episodeSourceMock.FetchEpisodesAsync(showConfig, Arg.Any<CancellationToken>()).Returns(podcast);
 
         var optionsWrapper = Options.Create(podBridgeOptions);
@@ -94,6 +102,55 @@ public sealed class RefreshScenarioTests
 
         // Assert
         _podcastCache.TryGetFull(showConfig.PodcastId).Should().NotBeNull();
+
+        var refreshActivity = activityListenerScope.StoppedActivities.Single(
+            activity => activity.GetTagItem(Observability.PlatformCountTag) is not null);
+        refreshActivity.GetTagItem(Observability.PlatformCountTag).Should().Be(1);
+        refreshActivity.GetTagItem(Observability.PodcastCountTag).Should().Be(1);
+        refreshActivity.GetTagItem(Observability.RefreshSuccessCountTag).Should().Be(1);
+        refreshActivity.GetTagItem(Observability.RefreshFailureCountTag).Should().Be(0);
+
+        var podcastActivity = activityListenerScope.StoppedActivities.Single(
+            activity => activity.GetTagItem(Observability.PodcastIdTag) is not null);
+        podcastActivity.GetTagItem(Observability.PodcastIdTag).Should().Be(showConfig.PodcastId);
+        podcastActivity.OperationName.Should().Be("RefreshPodcast");
+
+        meterListenerScope.Measurements.Should().ContainSingle(
+            m => m.InstrumentName == "podbridge.episodes.fetched" &&
+                 m.Value == 2 &&
+                 Equals(m.GetTag(Observability.PodcastIdTag), showConfig.PodcastId));
+        meterListenerScope.Measurements.Should().ContainSingle(
+            m => m.InstrumentName == "podbridge.refresh.success" &&
+                 m.Value == 1 &&
+                 Equals(m.GetTag(Observability.PodcastIdTag), showConfig.PodcastId));
+        meterListenerScope.Measurements.Should().NotContain(m => m.InstrumentName == "podbridge.refresh.failure");
+    }
+
+    [Test]
+    public async Task RefreshAllShowsAsync_WithNoPodcastsConfigured_RecordsZeroPlatformAndPodcastCount()
+    {
+        // Arrange: boundary case for the "podcasts.Count > 0 ? 1 : 0" ternary - an empty Podcasts list
+        // must record platformCount 0, distinct from any non-empty list (which always records 1,
+        // regardless of the exact count), and distinct from unconditionally recording 1 (mutant: `true`).
+        using var activityListenerScope = new ActivityListenerScope();
+        var podBridgeOptions = new PodBridgeOptionsBuilder().WithDefaults().Build();
+
+        var optionsWrapper = Options.Create(podBridgeOptions);
+        using var testee = new EpisodeRefreshWorker(
+            _episodeSourceMock,
+            _podcastCache,
+            optionsWrapper,
+            TimeProvider.System,
+            NullLogger<EpisodeRefreshWorker>.Instance);
+
+        // Act
+        await testee.RefreshAllShowsAsync(CancellationToken.None);
+
+        // Assert
+        var refreshActivity = activityListenerScope.StoppedActivities.Single(
+            activity => activity.GetTagItem(Observability.PlatformCountTag) is not null);
+        refreshActivity.GetTagItem(Observability.PlatformCountTag).Should().Be(0);
+        refreshActivity.GetTagItem(Observability.PodcastCountTag).Should().Be(0);
     }
 
     [Test]
@@ -257,7 +314,12 @@ public sealed class RefreshScenarioTests
     {
         // Arrange: registers a listener so the catch block's activity?.SetStatus(...)/AddException(...)
         // calls exercise the "activity is present" branch too (activity is null in the other failure test).
+        // The recorded tag values, activity status, and failure counter measurement are asserted too, so
+        // mutations to the failure counter, the SetStatus/AddException calls, and Observability.
+        // RecordRefreshFailure(...) (invisible on any Activity) are caught (cache state alone doesn't
+        // depend on them, since podcastCache.Update never runs on the failure path either way).
         using var activityListenerScope = new ActivityListenerScope();
+        using var meterListenerScope = new MeterListenerScope();
         var failingShowConfig = new PodcastConfigBuilder().WithDefaults().WithPodcastId("failing-show").Build();
         var podBridgeOptions = new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(failingShowConfig).Build();
         _episodeSourceMock.FetchEpisodesAsync(failingShowConfig, Arg.Any<CancellationToken>())
@@ -277,6 +339,23 @@ public sealed class RefreshScenarioTests
         // Assert
         await act.Should().NotThrowAsync("a single failing show must not abort the whole refresh cycle");
         _podcastCache.TryGetFull(failingShowConfig.PodcastId).Should().BeNull();
+
+        var refreshActivity = activityListenerScope.StoppedActivities.Single(
+            activity => activity.GetTagItem(Observability.PlatformCountTag) is not null);
+        refreshActivity.GetTagItem(Observability.RefreshSuccessCountTag).Should().Be(0);
+        refreshActivity.GetTagItem(Observability.RefreshFailureCountTag).Should().Be(1);
+
+        var podcastActivity = activityListenerScope.StoppedActivities.Single(
+            activity => activity.GetTagItem(Observability.PodcastIdTag) is not null);
+        podcastActivity.Status.Should().Be(ActivityStatusCode.Error);
+        podcastActivity.StatusDescription.Should().Be("Simulated fetch failure");
+        podcastActivity.Events.Should().ContainSingle(e => e.Name == "exception");
+
+        meterListenerScope.Measurements.Should().ContainSingle(
+            m => m.InstrumentName == "podbridge.refresh.failure" &&
+                 m.Value == 1 &&
+                 Equals(m.GetTag(Observability.PodcastIdTag), failingShowConfig.PodcastId));
+        meterListenerScope.Measurements.Should().NotContain(m => m.InstrumentName == "podbridge.refresh.success");
     }
 
     [Test]
@@ -418,12 +497,14 @@ public sealed class RefreshScenarioTests
             .Build();
 
         var optionsWrapper = Options.Create(podBridgeOptions);
+        var loggerMock = Substitute.For<ILogger<EpisodeRefreshWorker>>();
+        loggerMock.IsEnabled(Arg.Any<LogLevel>()).Returns(true);
         using var testee = new EpisodeRefreshWorker(
             _episodeSourceMock,
             _podcastCache,
             optionsWrapper,
             TimeProvider.System,
-            NullLogger<EpisodeRefreshWorker>.Instance);
+            loggerMock);
 
         // Act
         var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
@@ -433,5 +514,11 @@ public sealed class RefreshScenarioTests
         // Assert - completes on its own (no PeriodicTimer/cancellation needed) and never touches the cache
         await _episodeSourceMock.DidNotReceiveWithAnyArgs().FetchEpisodesAsync(default!, default);
         _podcastCache.TryGetFull(showConfig.PodcastId).Should().BeNull();
+        loggerMock.Received(1).Log(
+            LogLevel.Information,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            null,
+            Arg.Any<Func<object, Exception?, string>>());
     }
 }

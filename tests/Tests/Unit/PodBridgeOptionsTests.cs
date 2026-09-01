@@ -12,6 +12,16 @@ namespace Tests.Unit;
 public class PodBridgeOptionsTests
 {
     [Test]
+    public void Defaults_WhenNotConfigured_EnablesBackgroundRefresh()
+    {
+        // Arrange
+        var testee = new PodBridgeOptions();
+
+        // Assert
+        testee.BackgroundRefreshEnabled.Should().BeTrue();
+    }
+
+    [Test]
     public void BindConfiguration_WithValidPodcastsConfig_PopulatesOptionsCorrectly()
     {
         // Arrange
@@ -217,6 +227,23 @@ public class PodBridgeOptionsTests
 
         // Assert
         results.Should().Contain(r => r.ErrorMessage!.Contains("GraphQlEndpoint must be configured"));
+    }
+
+    [Test]
+    public void Validate_NoPodcastsWithoutGraphQlEndpoint_ReturnsNoValidationError()
+    {
+        // Arrange: boundary case for the "podcasts.Count > 0" check - an empty Podcasts list must not
+        // require a GraphQlEndpoint, unlike a non-empty one (covered by the test above).
+        var options = new PodBridgeOptionsBuilder()
+            .WithDefaults()
+            .WithGraphQlEndpoint(null)
+            .Build();
+
+        // Act
+        var results = options.Validate(new ValidationContext(options)).ToList();
+
+        // Assert
+        results.Should().NotContain(r => r.ErrorMessage!.Contains("GraphQlEndpoint must be configured"));
     }
 
     [Test]

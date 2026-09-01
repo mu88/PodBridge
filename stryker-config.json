@@ -1,18 +1,26 @@
 {
   "stryker-config": {
     "project": "src/PodBridge.Logic/PodBridge.Logic.csproj",
-    "test-projects": ["tests/Tests/Tests.csproj"],
-    "reporters": ["html", "progress", "json"],
-    "project-info": { "name": "github.com/mu88/PodBridge" },
+    "test-projects": [
+      "tests/Tests/Tests.csproj"
+    ],
+    "reporters": [
+      "dashboard",
+      "html",
+      "progress"
+    ],
+    "project-info": {
+      "name": "github.com/mu88/PodBridge"
+    },
     "mutate": [
       "!**/Program.cs",
       "!**/GraphQlEpisodeSource.cs"
     ],
-    "ignore-methods": ["logger.*", "Logger.*", "LogRefreshFailed"],
-    "disable-mix-mutants": true,
-    "mutation-level": "Standard",
-    "additional-timeout": 60000,
-    "coverage-analysis": "all"
+    "ignore-methods": [
+      "logger.*",
+      "Logger.*",
+      "LogRefreshFailed"
+    ]
   }
 }
 
