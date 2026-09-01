@@ -19,9 +19,9 @@
       },
       "mu88.Shared": {
         "type": "Direct",
-        "requested": "[8.2.0, )",
-        "resolved": "8.2.0",
-        "contentHash": "WUZVAItaC7j/TkeQ1Yp740yibsnKpXSAf+BlVbuR491ZHgP/StBwUb8FJFdNG0W5sJO4ocOLI2hpMgKCxhb7bw==",
+        "requested": "[8.3.0, )",
+        "resolved": "8.3.0",
+        "contentHash": "EfefuzMWxfDml170USdXoTsBpclC+WUPkOWj3eYYYxxeexhRnuNRFT2/lEexDKAbmQUxHh15mP85gq0+Ut04Kw==",
         "dependencies": {
           "IDisposableAnalyzers": "4.0.8",
           "Meziantou.Analyzer": "3.0.159",
@@ -30,6 +30,7 @@
           "OpenTelemetry.Extensions.Hosting": "1.17.0",
           "OpenTelemetry.Instrumentation.AspNetCore": "1.17.0",
           "OpenTelemetry.Instrumentation.EntityFrameworkCore": "1.0.0-beta.12",
+          "OpenTelemetry.Instrumentation.Http": "1.17.0",
           "OpenTelemetry.Instrumentation.Process": "0.5.0-beta.7",
           "OpenTelemetry.Instrumentation.Runtime": "1.17.0",
           "StyleCop.Analyzers": "1.1.118"
@@ -130,6 +131,14 @@
           "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.9.0, 2.0.0)"
         }
       },
+      "OpenTelemetry.Instrumentation.Http": {
+        "type": "Transitive",
+        "resolved": "1.17.0",
+        "contentHash": "uTwVtxIJ/xB96wGYTaDsbkJVeCFdUxTwvrlDUn2YJixy0UuKc8DvQMzwKNJMTzNFiiyYO9c40id6tUHTmWs33A==",
+        "dependencies": {
+          "OpenTelemetry.Api.ProviderBuilderExtensions": "[1.17.0, 2.0.0)"
+        }
+      },
       "OpenTelemetry.Instrumentation.Process": {
         "type": "Transitive",
         "resolved": "0.5.0-beta.7",
@@ -154,7 +163,7 @@
       "podbridge.logic": {
         "type": "Project",
         "dependencies": {
-          "mu88.Shared": "[8.2.0, )"
+          "mu88.Shared": "[8.3.0, )"
         }
       }
     },
