@@ -2,6 +2,17 @@
 
 All notable changes to this project will be documented in this file. See [versionize](https://github.com/versionize/versionize) for commit guidelines.
 
+<a name="1.0.1"></a>
+## [1.0.1](https://www.github.com/mu88/PodBridge/releases/tag/1.0.1) (2026-09-01)
+
+### 🐛 Bug Fixes
+
+* provide Podcast image URL according to RSS/itunes spec ([b834be7](https://www.github.com/mu88/PodBridge/commit/b834be7fb37b886775534976b59b793ddf69cde0))
+
+### ✅ Tests
+
+* strengthen mutation-testing coverage for options defaults, refresh worker telemetry, and version parsing ([6901a82](https://www.github.com/mu88/PodBridge/commit/6901a82e1f2ca67175a8957542ba61540c63fecc))
+
 <a name="1.0.0"></a>
 ## [1.0.0](https://www.github.com/mu88/PodBridge/releases/tag/1.0.0) (2026-09-01)
 
