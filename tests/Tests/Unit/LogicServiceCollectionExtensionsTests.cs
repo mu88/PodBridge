@@ -9,6 +9,7 @@ using PodBridge.Logic.Caching;
 using PodBridge.Logic.EpisodeSourcing;
 using PodBridge.Logic.Feeds;
 using PodBridge.Logic.Refresh;
+using PodBridge.Logic.Versioning;
 
 namespace Tests.Unit;
 
@@ -45,6 +46,7 @@ public class LogicServiceCollectionExtensionsTests
         provider.GetRequiredService<IEpisodeSource>().Should().NotBeNull();
         provider.GetRequiredService<IPodcastCache>().Should().NotBeNull();
         provider.GetRequiredService<TimeProvider>().Should().NotBeNull();
+        provider.GetRequiredService<IAppVersionProvider>().Should().NotBeNull();
         provider.GetServices<IHostedService>().Should().ContainSingle(service => service is EpisodeRefreshWorker);
 
         using var scope = provider.CreateScope();

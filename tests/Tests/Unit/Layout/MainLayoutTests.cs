@@ -10,6 +10,7 @@ using NSubstitute;
 using NUnit.Framework;
 using PodBridge.Api.Components.Layout;
 using PodBridge.Logic.Config;
+using PodBridge.Logic.Versioning;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit.Layout;
@@ -37,6 +38,7 @@ public sealed class MainLayoutTests
         _ctx.Services.AddSingleton(_hostEnvironment);
         _ctx.Services.AddSingleton<IHttpContextAccessor>(_httpContextAccessor);
         _ctx.Services.AddSingleton(_options);
+        _ctx.Services.AddSingleton<IAppVersionProvider>(new AppVersionProvider("1.4.2+abcdef0"));
     }
 
     [TearDown]
@@ -55,6 +57,17 @@ public sealed class MainLayoutTests
         // Assert
         testee.Find("h1").TextContent.Should().Be("PodBridge");
         testee.Find("main").TextContent.Should().Be("Example page content");
+    }
+
+    [Test]
+    public void Render_WithBodyContent_ShowsDisplayVersionInFooter()
+    {
+        // Act
+        var testee = _ctx.Render<MainLayout>(parameters => parameters
+            .Add(layout => layout.Body, builder => builder.AddContent(0, "Example page content")));
+
+        // Assert
+        testee.Find(".app-version").TextContent.Should().Be("v1.4.2");
     }
 
     [Test]

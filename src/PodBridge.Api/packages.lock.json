@@ -19,9 +19,9 @@
       },
       "mu88.Shared": {
         "type": "Direct",
-        "requested": "[8.3.0, )",
-        "resolved": "8.3.0",
-        "contentHash": "EfefuzMWxfDml170USdXoTsBpclC+WUPkOWj3eYYYxxeexhRnuNRFT2/lEexDKAbmQUxHh15mP85gq0+Ut04Kw==",
+        "requested": "[8.4.0, )",
+        "resolved": "8.4.0",
+        "contentHash": "HBZRM2ncR+2VEKQVQTRPQV2ZsRAGPze6Oeem2ffO3+XzZSldy+8hGlPLQOcfzlBxCCxpRK2sHVI0Z2/xdhLG7w==",
         "dependencies": {
           "IDisposableAnalyzers": "4.0.8",
           "Meziantou.Analyzer": "3.0.159",
@@ -163,7 +163,7 @@
       "podbridge.logic": {
         "type": "Project",
         "dependencies": {
-          "mu88.Shared": "[8.3.0, )"
+          "mu88.Shared": "[8.4.0, )"
         }
       }
     },

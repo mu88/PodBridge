@@ -3,9 +3,11 @@
 @inherits LayoutComponentBase
 @using Microsoft.Extensions.Options
 @using PodBridge.Logic.Config
+@using PodBridge.Logic.Versioning
 @inject IHostEnvironment HostEnvironment
 @inject IHttpContextAccessor HttpContextAccessor
 @inject IOptions<PodBridgeOptions> Options
+@inject IAppVersionProvider AppVersionProvider
 
 <div class="app-shell">
     <header class="site-header">
@@ -33,6 +35,12 @@
     <main class="shell-container page-content">
         @Body
     </main>
+
+    <footer class="site-footer">
+        <div class="shell-container">
+            <span class="app-version">v@(AppVersionProvider.DisplayVersion)</span>
+        </div>
+    </footer>
 </div>
 
 <div id="blazor-error-ui" data-nosnippet>

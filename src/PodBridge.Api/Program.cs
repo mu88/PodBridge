@@ -8,14 +8,17 @@ using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using mu88.Shared.OpenTelemetry;
 using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using PodBridge.Api;
 using PodBridge.Api.Authentication;
 using PodBridge.Api.Components;
 using PodBridge.Api.Components.Pages;
 using PodBridge.Api.Endpoints;
+using PodBridge.Api.Observability;
 using PodBridge.Logic;
 using PodBridge.Logic.Config;
+using PodBridge.Logic.Versioning;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -44,7 +47,12 @@ if (!string.IsNullOrWhiteSpace(externalConfigFilePath))
 
 builder.Services.ConfigureOpenTelemetry("podbridge", builder.Configuration);
 
+// AppVersionResourceDetector resolves IAppVersionProvider via the factory's IServiceProvider, which is
+// only invoked once the TracerProvider/MeterProvider is actually built (after the real DI container
+// exists) - so the app's DI-registered IAppVersionProvider can be reused here instead of constructing
+// a second, separate instance before the container is available.
 builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddDetector(sp => new AppVersionResourceDetector(sp.GetRequiredService<IAppVersionProvider>())))
     .WithTracing(tracing => tracing.AddSource(Observability.Source.Name))
     .WithMetrics(metrics => metrics.AddMeter(Observability.MeterName));
 

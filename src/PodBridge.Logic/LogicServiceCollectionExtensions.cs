@@ -6,6 +6,7 @@ using PodBridge.Logic.Config;
 using PodBridge.Logic.EpisodeSourcing;
 using PodBridge.Logic.Feeds;
 using PodBridge.Logic.Refresh;
+using PodBridge.Logic.Versioning;
 
 namespace PodBridge.Logic;
 
@@ -21,6 +22,7 @@ public static class LogicServiceCollectionExtensions
         services.AddHttpClient<IEpisodeSource, GraphQlEpisodeSource>();
         services.AddSingleton<IPodcastCache, PodcastCache>();
         services.AddScoped<IFeedUrlBuilder, FeedUrlBuilder>();
+        services.AddSingleton<IAppVersionProvider, AppVersionProvider>();
         services.AddSingleton(TimeProvider.System);
         services.AddHostedService<EpisodeRefreshWorker>();
 

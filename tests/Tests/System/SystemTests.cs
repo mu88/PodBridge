@@ -74,7 +74,11 @@ public class PodBridgeSystemTests
     public async Task AppRunningInDocker_ShouldSyncPodcastFromWireMockAndExposeRssFeed()
     {
         // Arrange
-        var imageTag = $"system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
+        // Must be a valid SemVer string (not just an arbitrary tag suffix): since mu88.Shared.targets now also
+        // sets the compiled assembly's Version from ReleaseVersion (in addition to the container tag), an
+        // invalid version string like the previous "system-test-<timestamp>" fails GenerateAssemblyInfo with
+        // NETSDK1018.
+        var imageTag = $"0.0.0-system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
         await BuildDockerImageAsync(imageTag);
 
         _network = new NetworkBuilder().Build();
@@ -116,7 +120,8 @@ public class PodBridgeSystemTests
     public async Task AppRunningInDocker_WithBasicAuthEnabled_ShouldEnforceAuthentication()
     {
         // Arrange
-        var imageTag = $"system-test-auth-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
+        // See the comment in the previous test for why this must be a valid SemVer string.
+        var imageTag = $"0.0.0-system-test-auth-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
         await BuildDockerImageAsync(imageTag);
 
         _network = new NetworkBuilder().Build();
