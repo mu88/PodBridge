@@ -59,6 +59,34 @@ public sealed class RateLimitingTests
     }
 
     [Test]
+    public async Task GetLogin_ExceedingAuthRateLimit_StillReturns200()
+    {
+        // Arrange - GET requests to /login (initial page view, browser refresh, redirect back after
+        // logout) must never count against the brute-force login limiter - only actual submitted
+        // login attempts (POST) should. Otherwise a legitimate user gets locked out just by viewing
+        // the page repeatedly, without ever having tried a single (wrong or correct) credential.
+        await using var factory = new TestWebApplicationFactory(
+            authEnabled: true,
+            authUsername: "testuser",
+            authPassword: "testpass",
+            authRateLimitingPermitLimit: 2,
+            authRateLimitingWindowMinutes: 1);
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        // Act - request the login page far more often than the permit limit
+        HttpResponseMessage? lastResponse = null;
+        for (var i = 0; i < 5; i++)
+        {
+            lastResponse?.Dispose();
+            lastResponse = await client.GetAsync("/login");
+        }
+
+        // Assert
+        lastResponse!.StatusCode.Should().Be(HttpStatusCode.OK);
+        lastResponse.Dispose();
+    }
+
+    [Test]
     public async Task PostLogin_ExceedingRateLimit_Returns429()
     {
         // Arrange
@@ -68,7 +96,7 @@ public sealed class RateLimitingTests
             authEnabled: true,
             authUsername: "testuser",
             authPassword: "testpass",
-            authRateLimitingPermitLimit: 4, // +1 to account for the GET request used to fetch the antiforgery token
+            authRateLimitingPermitLimit: 3,
             authRateLimitingWindowMinutes: 1);
         using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
         {

@@ -87,9 +87,24 @@ builder.Services.AddRateLimiter(rateLimiterOptions =>
     // login endpoint gets its own, independently configurable rate limit (see AuthOptions).
     static RateLimitPartition<string> CreateLoginRateLimitPartition(HttpContext context)
     {
+        var ipKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        // The "/login" route is hit by both the initial GET page view (and every browser refresh or
+        // redirect back after logout) and the POST form submission, since Blazor's enhanced navigation
+        // posts back to the same route. Only POST represents an actual login attempt - counting GET
+        // requests too would lock out a legitimate user just for viewing the page a few times, without
+        // ever having submitted a single credential. The partition key must differ per method: the
+        // PartitionedRateLimiter caches the first limiter created for a given key and ignores the
+        // RateLimitPartition returned by later calls with that same key, so reusing "ipKey" for both
+        // GET and POST would make whichever method hits first "win" for the whole window.
+        if (!HttpMethods.IsPost(context.Request.Method))
+        {
+            return RateLimitPartition.GetNoLimiter($"{ipKey}-get");
+        }
+
         var options = context.RequestServices.GetRequiredService<IOptionsMonitor<PodBridgeOptions>>().CurrentValue;
         return RateLimitPartition.GetFixedWindowLimiter(
-            context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            $"{ipKey}-post",
             _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = options.Auth.RateLimitingPermitLimit,
