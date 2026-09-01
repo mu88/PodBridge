@@ -9,6 +9,10 @@ public sealed class PodBridgeOptions : IValidatableObject
     [Range(1, int.MaxValue)]
     public int RefreshIntervalMinutes { get; init; } = 360;
 
+    // Defaults to true so existing deployments keep refreshing without any config change; tests disable it
+    // (see TestWebApplicationFactory) so per-test hosts don't run an unnecessary background loop.
+    public bool BackgroundRefreshEnabled { get; init; } = true;
+
     [Range(1, 100)]
     public int RateLimitingPermitLimit { get; init; } = 15;
 

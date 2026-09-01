@@ -108,6 +108,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             { "ASPNETCORE_ENVIRONMENT", "Testing" },
             { "PodBridge:RefreshIntervalMinutes", "60" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
+            { "PodBridge:BackgroundRefreshEnabled", "false" },
         };
 
         if (_rateLimitingPermitLimit is not null)

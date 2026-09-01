@@ -6,6 +6,7 @@ public sealed class PodBridgeOptionsBuilder
 {
     private readonly List<PodcastConfig> _podcasts = [];
     private int _refreshIntervalMinutes = 60;
+    private bool _backgroundRefreshEnabled = true;
     private int _rateLimitingPermitLimit = 15;
     private int _rateLimitingWindowMinutes = 5;
     private Uri? _graphQlEndpoint;
@@ -16,12 +17,19 @@ public sealed class PodBridgeOptionsBuilder
     public PodBridgeOptionsBuilder WithDefaults()
     {
         _refreshIntervalMinutes = 60;
+        _backgroundRefreshEnabled = true;
         _rateLimitingPermitLimit = 15;
         _rateLimitingWindowMinutes = 5;
         _graphQlEndpoint = new Uri("https://fixture.test/graphql");
         _authEnabled = false;
         _authUsernameHash = null;
         _authPasswordHash = null;
+        return this;
+    }
+
+    public PodBridgeOptionsBuilder WithBackgroundRefreshEnabled(bool enabled)
+    {
+        _backgroundRefreshEnabled = enabled;
         return this;
     }
 
@@ -57,6 +65,7 @@ public sealed class PodBridgeOptionsBuilder
         {
             Podcasts = _podcasts,
             RefreshIntervalMinutes = _refreshIntervalMinutes,
+            BackgroundRefreshEnabled = _backgroundRefreshEnabled,
             RateLimitingPermitLimit = _rateLimitingPermitLimit,
             RateLimitingWindowMinutes = _rateLimitingWindowMinutes,
             GraphQlEndpoint = _graphQlEndpoint,

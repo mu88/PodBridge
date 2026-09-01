@@ -51,8 +51,8 @@ public sealed class ExternalConfigFileTests
     [Test]
     public async Task GetPodcasts_WithoutExternalConfigFile_UsesDefaultRateLimit()
     {
-        // Arrange - no environment variable set, and no file exists at the hardcoded default path, so the
-        // optional JSON file provider must silently contribute nothing, leaving the default rate limit in effect.
+        // Arrange - no environment variable set, so the external config file feature is skipped entirely,
+        // leaving the default rate limit in effect.
         var podcast = new PodcastBuilder().WithDefaults().Build();
         await using var factory = new TestWebApplicationFactory(testPodcast: podcast);
         using var client = factory.CreateClient();

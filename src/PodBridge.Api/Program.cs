@@ -25,11 +25,22 @@ builder.Configuration
 
 // Allows the full PodBridge configuration section (including the Podcasts array, which is unwieldy to set
 // via individual environment variables) to be provided as a single file mounted into the container - e.g.
-// via a Hostim.dev Volume. Read as a raw environment variable (not through builder.Configuration) so tests
-// can point it at a temp file deterministically before the host is built. Silently has no effect (optional:
-// true) when the file doesn't exist, so this is a no-op for local development and other deployments.
-var externalConfigFilePath = Environment.GetEnvironmentVariable("PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH") ?? "/data/podbridge.appsettings.json";
-builder.Configuration.AddJsonFile(externalConfigFilePath, optional: true, reloadOnChange: true);
+// via a Hostim.dev Volume. Only attempted when PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH is explicitly set, so
+// there's no hardcoded default path that could point at a directory that doesn't exist (e.g. an unmounted
+// volume) - reloadOnChange: true on such a path makes .NET's FileSystemWatcher fall back to recursively
+// watching the nearest existing ancestor directory instead, which can take minutes on a large filesystem
+// and was blocking host startup (verified via a CI hang-dump/CLR stack trace showing
+// FileSystemWatcher.StartRaisingEvents -> AddDirectoryWatchUnlocked stuck enumerating directories). Read as
+// a raw environment variable (not through builder.Configuration) so tests can point it at a temp file
+// deterministically before the host is built.
+var externalConfigFilePath = Environment.GetEnvironmentVariable("PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH");
+if (!string.IsNullOrWhiteSpace(externalConfigFilePath))
+{
+    // Defense-in-depth for the same FileSystemWatcher fallback described above, in case an operator sets
+    // the environment variable to a path whose directory isn't mounted yet.
+    var externalConfigDirectoryExists = Directory.Exists(Path.GetDirectoryName(externalConfigFilePath));
+    builder.Configuration.AddJsonFile(externalConfigFilePath, optional: true, reloadOnChange: externalConfigDirectoryExists);
+}
 
 builder.Services.ConfigureOpenTelemetry("podbridge", builder.Configuration);
 

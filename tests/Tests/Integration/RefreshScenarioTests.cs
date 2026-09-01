@@ -405,4 +405,33 @@ public sealed class RefreshScenarioTests
         await act.Should().ThrowAsync<OperationCanceledException>();
         _podcastCache.TryGetFull(showConfig.PodcastId).Should().NotBeNull();
     }
+
+    [Test]
+    public async Task ExecuteAsync_WithBackgroundRefreshDisabled_CompletesImmediatelyWithoutRefreshing()
+    {
+        // Arrange
+        var showConfig = new PodcastConfigBuilder().WithDefaults().WithPodcastId("show1").Build();
+        var podBridgeOptions = new PodBridgeOptionsBuilder()
+            .WithDefaults()
+            .WithPodcast(showConfig)
+            .WithBackgroundRefreshEnabled(false)
+            .Build();
+
+        var optionsWrapper = Options.Create(podBridgeOptions);
+        using var testee = new EpisodeRefreshWorker(
+            _episodeSourceMock,
+            _podcastCache,
+            optionsWrapper,
+            TimeProvider.System,
+            NullLogger<EpisodeRefreshWorker>.Instance);
+
+        // Act
+        var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
+        var executeTask = (Task)executeAsyncMethod.Invoke(testee, [CancellationToken.None])!;
+        await executeTask.WaitAsync(TimeSpan.FromSeconds(5), TimeProvider.System);
+
+        // Assert - completes on its own (no PeriodicTimer/cancellation needed) and never touches the cache
+        await _episodeSourceMock.DidNotReceiveWithAnyArgs().FetchEpisodesAsync(default!, default);
+        _podcastCache.TryGetFull(showConfig.PodcastId).Should().BeNull();
+    }
 }

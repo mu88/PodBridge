@@ -51,6 +51,12 @@ internal sealed partial class EpisodeRefreshWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (!options.Value.BackgroundRefreshEnabled)
+        {
+            LogBackgroundRefreshDisabled();
+            return;
+        }
+
         using var timer = new PeriodicTimer(TimeSpan.FromMinutes(options.Value.RefreshIntervalMinutes), timeProvider);
 
         do
@@ -108,4 +114,7 @@ internal sealed partial class EpisodeRefreshWorker(
 
     [LoggerMessage(Level = LogLevel.Error, Message = "Failed to refresh podcast {PodcastId}")]
     private partial void LogRefreshFailed(Exception exception, string podcastId);
+
+    [LoggerMessage(Level = LogLevel.Information, Message = "Background podcast refresh is disabled (PodBridge:BackgroundRefreshEnabled=false)")]
+    private partial void LogBackgroundRefreshDisabled();
 }

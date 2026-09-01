@@ -118,8 +118,8 @@ to know them. Generate the hashes once with `Scripts/New-CredentialHash.ps1`:
 
 - **External config file** (recommended when there are many podcasts, since the `Podcasts` array is unwieldy to express as individual environment variables):
   - Mount a JSON file containing the full `PodBridge` section (Podcasts, Auth hashes, etc.) into the container, e.g. at `/data/podbridge.appsettings.json` via a persistent Volume.
-  - Set the `PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH` environment variable if the file isn't at the default path above.
-  - Reloaded automatically when the file changes on disk (`reloadOnChange: true`), so updating the Podcasts list doesn't require a redeploy.
+  - Set the `PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH` environment variable to that path; the feature is disabled entirely (no lookup at any default path) unless this variable is set.
+  - Reloaded automatically when the file changes on disk, as long as its containing directory already exists at startup (`reloadOnChange` is otherwise disabled to avoid `FileSystemWatcher` falling back to a slow recursive watch of the nearest existing ancestor directory), so updating the Podcasts list usually doesn't require a redeploy.
 
 - **Local development**:
   - Use standard .NET configuration sources such as environment variables, `launchSettings.json`, or `dotnet user-secrets`.
