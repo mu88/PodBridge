@@ -20,7 +20,7 @@ jobs:
       id-token: write
       packages: write
 
-    uses: mu88/common/.github/workflows/ci-cd.yml@2065d9a2f13eb5784433ac5bfc60e9a4df4ef9a5
+    uses: mu88/common/.github/workflows/ci-cd.yml@2065d9a2f13eb5784433ac5bfc60e9a4df4ef9a5 # main
     with:
       docker-attest-provenance-and-sbom: true
       docker-publish-project: src/PodBridge.Api/PodBridge.Api.csproj
