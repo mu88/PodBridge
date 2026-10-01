@@ -1,5 +1,5 @@
 using System.Collections.Concurrent;
-using PodBridge.Logic.Domain;
+using PodBridge.Logic.Shared;
 
 namespace PodBridge.Logic.Caching;
 
@@ -14,7 +14,7 @@ internal sealed class PodcastCache(TimeProvider timeProvider) : IPodcastCache
         _cache[podcastId] = new CachedPodcast(podcast, timeProvider.GetUtcNow());
     }
 
-    public CachedPodcast? TryGetFull(string podcastId)
+    public CachedPodcast? FindFull(string podcastId)
     {
         return _cache.GetValueOrDefault(podcastId);
     }

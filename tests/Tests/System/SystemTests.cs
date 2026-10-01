@@ -10,7 +10,9 @@ using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using FluentAssertions;
 using FluentAssertions.Web;
+using Npgsql;
 using NUnit.Framework;
+using Testcontainers.PostgreSql;
 using WireMock.Net.Testcontainers;
 
 namespace Tests.SystemTests;
@@ -19,9 +21,14 @@ namespace Tests.SystemTests;
 public class PodBridgeSystemTests
 {
     private const string FixtureShowId = "fixture-show";
+    private const string FixtureShowIdShowId = "fixture-show-id";
     private const string FixtureShowDisplayName = "System Test Fixture Show";
     private const string SystemTestAuthUsername = "systemtestuser";
     private const string SystemTestAuthPassword = "systemtestpass";
+    private const string PostgresNetworkAlias = "postgres";
+    private const string PostgresDatabase = "podbridge";
+    private const string PostgresUsername = "podbridge";
+    private const string PostgresPassword = "podbridge-system-test-pw";
 
     // Pre-computed PBKDF2 hashes (via PodBridge.Logic.Security.CredentialHasher.Hash) of the plaintext
     // constants above, hardcoded here rather than computed at test time so this system test stays a true
@@ -34,12 +41,16 @@ public class PodBridgeSystemTests
     private CancellationTokenSource _cancellationTokenSource = null!;
     private INetwork? _network;
     private WireMockContainer? _wireMockContainer;
+    private PostgreSqlContainer? _postgresContainer;
     private IContainer? _podBridgeContainer;
 
     [SetUp]
     public void Setup()
     {
-        _cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(3));
+        // 6 minutes to comfortably cover: Docker image publish/build, WireMock + Postgres + PodBridge
+        // container startup, and - in the feed-population test - waiting out a full
+        // PodBridge__RefreshIntervalMinutes=1 (60s) periodic-refresh cycle after seeding the fixture podcast.
+        _cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(6));
     }
 
     [TearDown]
@@ -59,6 +70,11 @@ public class PodBridgeSystemTests
         if (_wireMockContainer != null)
         {
             await _wireMockContainer.DisposeAsync();
+        }
+
+        if (_postgresContainer != null)
+        {
+            await _postgresContainer.DisposeAsync();
         }
 
         if (_network != null)
@@ -85,7 +101,9 @@ public class PodBridgeSystemTests
         await _network.CreateAsync(_cancellationTokenSource.Token);
 
         _wireMockContainer = await StartWireMockContainerAsync();
+        _postgresContainer = await StartPostgresContainerAsync();
         _podBridgeContainer = await StartPodBridgeContainerAsync(imageTag, authEnabled: false);
+        await SeedFixturePodcastAsync();
 
         using var httpClient = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
 
@@ -128,7 +146,9 @@ public class PodBridgeSystemTests
         await _network.CreateAsync(_cancellationTokenSource.Token);
 
         _wireMockContainer = await StartWireMockContainerAsync();
+        _postgresContainer = await StartPostgresContainerAsync();
         _podBridgeContainer = await StartPodBridgeContainerAsync(imageTag, authEnabled: true);
+        await SeedFixturePodcastAsync();
 
         using var httpClientWithoutAuth = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
         using var httpClientWithAuth = new HttpClient { BaseAddress = GetPodBridgeBaseAddress() };
@@ -191,9 +211,42 @@ public class PodBridgeSystemTests
         return container;
     }
 
+    private async Task<PostgreSqlContainer> StartPostgresContainerAsync()
+    {
+        var container = new PostgreSqlBuilder("postgres:18-alpine")
+            .WithNetwork(_network)
+            .WithNetworkAliases(PostgresNetworkAlias)
+            .WithDatabase(PostgresDatabase)
+            .WithUsername(PostgresUsername)
+            .WithPassword(PostgresPassword)
+            .Build();
+
+        await container.StartAsync(_cancellationTokenSource.Token);
+        return container;
+    }
+
+    // Inserts the fixture podcast directly via Npgsql (bypassing the Add Podcast UI/HTTP flow) - by the time
+    // this runs, the PodBridge container has already reported healthy, which only happens after its
+    // migrate-on-startup step (see Program.cs) has completed, so the Podcasts table is guaranteed to exist.
+    private async Task SeedFixturePodcastAsync()
+    {
+        await using var connection = new NpgsqlConnection(_postgresContainer!.GetConnectionString());
+        await connection.OpenAsync(_cancellationTokenSource.Token);
+
+        await using var command = connection.CreateCommand();
+        command.CommandText = """INSERT INTO "Podcasts" ("PodcastId", "ShowId") VALUES (@podcastId, @showId)""";
+        command.Parameters.AddWithValue("podcastId", FixtureShowId);
+        command.Parameters.AddWithValue("showId", FixtureShowIdShowId);
+        await command.ExecuteNonQueryAsync(_cancellationTokenSource.Token);
+    }
+
     private async Task<IContainer> StartPodBridgeContainerAsync(string imageTag, bool authEnabled)
     {
         var imageName = $"podbridge-api:{imageTag}-chiseled";
+
+        // Exercises the real PostgresConnectionStringResolver indirection path (not the ConnectionStrings
+        // fallback): the hosting platform supplies raw PGHOST/PGPORT/etc. env vars, and PodBridge__Database__*
+        // tells the app which env var names to read.
         var builder = new ContainerBuilder(imageName)
             .WithNetwork(_network)
             .WithNetworkAliases("podbridge")
@@ -204,8 +257,16 @@ public class PodBridgeSystemTests
             .WithEnvironment("PodBridge__RateLimitingPermitLimit", "100")
             .WithEnvironment("PodBridge__RateLimitingWindowMinutes", "5")
             .WithEnvironment("PodBridge__GraphQlEndpoint", "http://wiremock/graphql")
-            .WithEnvironment("PodBridge__Podcasts__0__PodcastId", FixtureShowId)
-            .WithEnvironment("PodBridge__Podcasts__0__ShowId", "fixture-show-id");
+            .WithEnvironment("PodBridge__Database__HostEnvVar", "PGHOST")
+            .WithEnvironment("PodBridge__Database__PortEnvVar", "PGPORT")
+            .WithEnvironment("PodBridge__Database__UsernameEnvVar", "PGUSER")
+            .WithEnvironment("PodBridge__Database__PasswordEnvVar", "PGPASSWORD")
+            .WithEnvironment("PodBridge__Database__DatabaseNameEnvVar", "PGDATABASE")
+            .WithEnvironment("PGHOST", PostgresNetworkAlias)
+            .WithEnvironment("PGPORT", "5432")
+            .WithEnvironment("PGUSER", PostgresUsername)
+            .WithEnvironment("PGPASSWORD", PostgresPassword)
+            .WithEnvironment("PGDATABASE", PostgresDatabase);
 
         if (authEnabled)
         {
@@ -278,7 +339,13 @@ public class PodBridgeSystemTests
     [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP017:Prefer using", Justification = "A using declaration would dispose the response before it can be returned to the caller on the success path.")]
     private async Task<HttpResponseMessage> WaitForFeedToBePopulatedAsync(HttpClient httpClient)
     {
-        const int maxAttempts = 30;
+        // The fixture podcast is only seeded into Postgres after the container reports healthy, by which
+        // point the worker's first refresh cycle (which runs immediately at startup, see
+        // EpisodeRefreshWorker.ExecuteAsync) has already completed against an empty Podcasts table. The
+        // podcast is therefore only picked up on the *next* PeriodicTimer tick, up to a full
+        // PodBridge__RefreshIntervalMinutes=1 (60s) later - the wait window below must comfortably exceed
+        // that to avoid flakiness.
+        const int maxAttempts = 90;
         var delayBetweenAttempts = TimeSpan.FromSeconds(2);
 
         for (var attempt = 0; attempt < maxAttempts; attempt++)

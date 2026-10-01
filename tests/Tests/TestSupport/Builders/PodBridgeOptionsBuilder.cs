@@ -4,7 +4,6 @@ namespace Tests.TestSupport.Builders;
 
 public sealed class PodBridgeOptionsBuilder
 {
-    private readonly List<PodcastConfig> _podcasts = [];
     private int _refreshIntervalMinutes = 60;
     private bool _backgroundRefreshEnabled = true;
     private int _rateLimitingPermitLimit = 15;
@@ -33,18 +32,6 @@ public sealed class PodBridgeOptionsBuilder
         return this;
     }
 
-    public PodBridgeOptionsBuilder WithPodcast(PodcastConfig podcast)
-    {
-        _podcasts.Add(podcast);
-        return this;
-    }
-
-    public PodBridgeOptionsBuilder WithPodcast(PodcastConfigBuilder podcastBuilder)
-    {
-        _podcasts.Add(podcastBuilder.Build());
-        return this;
-    }
-
     public PodBridgeOptionsBuilder WithGraphQlEndpoint(Uri? endpoint)
     {
         _graphQlEndpoint = endpoint;
@@ -63,7 +50,6 @@ public sealed class PodBridgeOptionsBuilder
     {
         return new PodBridgeOptions
         {
-            Podcasts = _podcasts,
             RefreshIntervalMinutes = _refreshIntervalMinutes,
             BackgroundRefreshEnabled = _backgroundRefreshEnabled,
             RateLimitingPermitLimit = _rateLimitingPermitLimit,

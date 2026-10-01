@@ -3,6 +3,7 @@ using System.Text;
 using FluentAssertions;
 using FluentAssertions.Web;
 using NUnit.Framework;
+using PodBridge.Logic.Shared;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Integration;
@@ -16,11 +17,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
 
         // Act
@@ -35,11 +32,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes("testuser:testpass"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
@@ -56,11 +49,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes("testuser:wrongpassword"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
@@ -77,11 +66,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes("wronguser:testpass"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
@@ -98,11 +83,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", "not-valid-base64!!!");
 
@@ -118,11 +99,7 @@ public sealed class BasicAuthenticationTests
     {
         // Arrange
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        await using var factory = new TestWebApplicationFactory(
-            testPodcast: podcast,
-            authEnabled: true,
-            authUsername: "testuser",
-            authPassword: "testpass");
+        await using var factory = CreateAuthenticatedFactory(podcast);
         using var client = factory.CreateClient();
         var credentials = Convert.ToBase64String(Encoding.ASCII.GetBytes("testuseronly"));
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", credentials);
@@ -169,5 +146,14 @@ public sealed class BasicAuthenticationTests
 
         // Assert
         response.Should().Be200Ok();
+    }
+
+    private static TestWebApplicationFactory CreateAuthenticatedFactory(Podcast? podcast = null)
+    {
+        return new TestWebApplicationFactory(
+            testPodcast: podcast,
+            authEnabled: true,
+            authUsername: "testuser",
+            authPassword: "testpass");
     }
 }

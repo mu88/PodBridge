@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace PodBridge.Logic.Versioning;
@@ -10,7 +11,7 @@ internal sealed class AppVersionProvider : IAppVersionProvider
     private const string UnknownVersion = "unknown";
 
     public AppVersionProvider()
-        : this(Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion)
+        : this(FindInformationalVersionFromEntryAssembly())
     {
     }
 
@@ -27,4 +28,12 @@ internal sealed class AppVersionProvider : IAppVersionProvider
     public string DisplayVersion { get; }
 
     public string FullVersion { get; }
+
+    // Reading the real entry assembly's attributes can't be meaningfully varied from a unit test (there's
+    // only ever one actual entry assembly per test run, so the "no attribute"/"no entry assembly" branches
+    // are practically untestable here) - the branch-relevant logic itself is fully covered via the
+    // string-accepting constructor above (see AppVersionProviderTests).
+    [ExcludeFromCodeCoverage]
+    private static string? FindInformationalVersionFromEntryAssembly() =>
+        Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
 }

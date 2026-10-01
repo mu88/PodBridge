@@ -1,13 +1,14 @@
 @page "/"
 @using System.Globalization
 @using Microsoft.AspNetCore.Http
-@using Microsoft.Extensions.Options
+@using Microsoft.EntityFrameworkCore
 @using PodBridge.Logic
 @using PodBridge.Logic.Caching
 @using PodBridge.Logic.Config
 @using PodBridge.Logic.Feeds
+@using PodBridge.Persistence
 @namespace PodBridge.Api.Components.Pages
-@inject IOptions<PodBridgeOptions> Options
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IPodcastCache PodcastCache
 @inject IFeedUrlBuilder FeedUrlBuilder
 @inject IHttpContextAccessor HttpContextAccessor
@@ -15,8 +16,6 @@
 <PageTitle>PodBridge - Feed Overview</PageTitle>
 
 @{
-    var podcasts = Options.Value.Podcasts.ToList();
-
     // HttpContextAccessor.HttpContext is guaranteed non-null: the app only ever uses static SSR (no
     // interactive render mode), so HttpContext is always present while a page is rendering.
     var requestBaseUrl = HttpContextAccessor.HttpContext!.Request.ToBaseUrl();
@@ -26,13 +25,14 @@
     <div>
         <h2>Available Podcasts</h2>
     </div>
-    @if (podcasts.Count > 0)
+    <a class="action-link action-link--accent" href="/podcasts/add">+ Add Podcast</a>
+    @if (_podcasts.Count > 0)
     {
-        <span class="podcast-count">@podcasts.Count configured</span>
+        <span class="podcast-count">@_podcasts.Count configured</span>
     }
 </section>
 
-@if (podcasts.Count > 0)
+@if (_podcasts.Count > 0)
 {
     <section class="surface-card">
         <div class="table-scroll">
@@ -47,10 +47,10 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @foreach (var podcast in podcasts)
+                    @foreach (var podcast in _podcasts)
                     {
                         var feedUrl = FeedUrlBuilder.BuildFeedUrl(podcast.PodcastId, requestBaseUrl);
-                        var cached = PodcastCache.TryGetFull(podcast.PodcastId);
+                        var cached = PodcastCache.FindFull(podcast.PodcastId);
                         var lastUpdated = cached is not null
                             ? $"{cached.LastUpdated.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)} (UTC)"
                             : "Not yet generated";
@@ -64,15 +64,15 @@
                                     <img class="podcast-image" src="@imageUrl" alt="@title" loading="lazy" />
                                 }
                             </td>
-                            <td>
+                            <td data-label="Show">
                                 <a class="podcast-name" href="/podcasts/@podcast.PodcastId">@title</a>
                                 <div class="podcast-id">@podcast.PodcastId</div>
                             </td>
-                            <td><a class="action-link" href="@feedUrl" target="_blank">RSS</a></td>
-                            <td>
+                            <td data-label="Feed"><a class="action-link" href="@feedUrl" target="_blank">RSS</a></td>
+                            <td data-label="Subscribe">
                                 <a class="action-link action-link--accent" href="antennapod-subscribe://@feedUrl" target="_blank">Subscribe in AntennaPod</a>
                             </td>
-                            <td>
+                            <td data-label="Last Updated">
                                 <span class="status-pill">@(lastUpdated)</span>
                             </td>
                         </tr>
@@ -88,3 +88,14 @@ else
         <p>No podcasts configured.</p>
     </section>
 }
+
+@code {
+    private IReadOnlyList<PodcastConfig> _podcasts = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        _podcasts = await dbContext.Podcasts.ToListAsync();
+    }
+}
+

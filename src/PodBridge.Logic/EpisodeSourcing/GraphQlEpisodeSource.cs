@@ -1,16 +1,24 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Net.Http.Json;
-using System.Text.Json;
 using Microsoft.Extensions.Options;
 using PodBridge.Logic.Config;
-using PodBridge.Logic.Domain;
+using PodBridge.Logic.Shared;
 
 namespace PodBridge.Logic.EpisodeSourcing;
 
-internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBridgeOptions> options) : IEpisodeSource
+internal sealed class GraphQlEpisodeSource(
+    IHttpClientFactory httpClientFactory,
+    IOptionsMonitor<PodBridgeOptions> options,
+    GraphQlClient graphQlClient) : IEpisodeSource
 {
-    private const int ImageWidth = 640;
+    // Named (not typed) HttpClient: GraphQlEpisodeSource is registered as a singleton (it's captured by the
+    // singleton PodcastRefreshService), so a typed client - which would capture one HttpClient instance for
+    // the app's entire lifetime - would defeat IHttpClientFactory's handler rotation. Calling CreateClient
+    // per request instead keeps that rotation intact, symmetric to how IDbContextFactory hands out
+    // short-lived DbContext instances to singleton consumers.
+    public const string HttpClientName = "GraphQl";
+
     private const int PageSize = 50;
     private const int MaxPages = 100;
     private const string DefaultAudioMimeType = "audio/mpeg";
@@ -57,11 +65,6 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
         }
         """;
 
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     public async Task<Podcast> FetchEpisodesAsync(PodcastConfig podcast, CancellationToken cancellationToken)
     {
         using var activity = Observability.Source.StartActivity();
@@ -71,14 +74,9 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
         return MapPodcast(programSet);
     }
 
-    private static ProgramSet ExtractProgramSet(GraphQlResponse? payload, string showId)
+    private static ProgramSet ExtractProgramSet(GraphQlData? data, string showId)
     {
-        if (payload?.Errors is { Count: > 0 })
-        {
-            throw new InvalidOperationException(string.Join("; ", payload.Errors.Select(error => error.Message)));
-        }
-
-        return payload?.Data?.ProgramSet
+        return data?.ProgramSet
             ?? throw new InvalidOperationException($"No program set was returned for show '{showId}'.");
     }
 
@@ -92,24 +90,24 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
 
     private static Episode? MapEpisode(Item item)
     {
-        var preferredAudio = GetPreferredAudio(item.Audios);
-        var audioUrl = CreateUri(preferredAudio?.DownloadUrl ?? preferredAudio?.Url);
-        var imageUrl = CreateImageUrl(item.Image?.Url);
-        var link = CreateUri(item.SharingUrl);
+        var preferredAudio = FindPreferredAudio(item.Audios);
+        var audioUrl = GraphQlClient.CreateUri(preferredAudio?.DownloadUrl ?? preferredAudio?.Url);
+        var imageUrl = GraphQlClient.CreateImageUrl(item.Image?.Url);
+        var link = GraphQlClient.CreateUri(item.SharingUrl);
 
         return audioUrl is null
             ? null
             : new Episode(
                 item.Id,
                 item.Title,
-                GetEpisodeDescription(item),
+                FindEpisodeDescription(item),
                 item.PublishDate,
                 audioUrl,
                 item.Duration,
                 imageUrl,
                 EpisodeNumber: item.EpisodeNumber?.ToString(CultureInfo.InvariantCulture),
                 Link: link,
-                AudioMimeType: NormalizeAudioMimeType(GetPreferredAudioMimeType(preferredAudio)));
+                AudioMimeType: NormalizeAudioMimeType(FindPreferredAudioMimeType(preferredAudio)));
     }
 
     private static Podcast MapPodcast(ProgramSet programSet)
@@ -117,22 +115,22 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
         return new Podcast(
             programSet.Title,
             programSet.Description ?? programSet.Synopsis,
-            CreateImageUrl(programSet.Image?.Url),
+            GraphQlClient.CreateImageUrl(programSet.Image?.Url),
             MapEpisodes(programSet.Items.Nodes),
             Author: programSet.PublicationService?.Title,
-            Link: CreateUri(programSet.SharingUrl));
+            Link: GraphQlClient.CreateUri(programSet.SharingUrl));
     }
 
-    private static string? GetEpisodeDescription(Item item)
+    private static string? FindEpisodeDescription(Item item)
     {
         return item.Description ?? item.ShowNotes ?? item.Summary ?? item.Synopsis;
     }
 
-    private static AssetType? GetPreferredAudio(IReadOnlyList<AssetType>? audios)
+    private static AssetType? FindPreferredAudio(IReadOnlyList<AssetType>? audios)
     {
         return audios?
             .OrderByDescending(audio => IsPreferredAudioFormat(audio.MimeType))
-            .FirstOrDefault(audio => CreateUri(audio.DownloadUrl ?? audio.Url) is not null);
+            .FirstOrDefault(audio => GraphQlClient.CreateUri(audio.DownloadUrl ?? audio.Url) is not null);
     }
 
     private static bool IsPreferredAudioFormat(string mimeType)
@@ -147,28 +145,12 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
     }
 
     // preferredAudio is guaranteed non-null whenever MapEpisode reaches this call (audioUrl being non-null already
-    // implies GetPreferredAudio returned a non-null result), so the null-conditional's "null" branch here is
+    // implies FindPreferredAudio returned a non-null result), so the null-conditional's "null" branch here is
     // structurally unreachable and cannot be exercised by tests.
     [ExcludeFromCodeCoverage(Justification = "preferredAudio is always non-null at this call site; see comment above.")]
-    private static string? GetPreferredAudioMimeType(AssetType? preferredAudio)
+    private static string? FindPreferredAudioMimeType(AssetType? preferredAudio)
     {
         return preferredAudio?.MimeType;
-    }
-
-    private static Uri? CreateImageUrl(string? url)
-    {
-        if (string.IsNullOrWhiteSpace(url))
-        {
-            return null;
-        }
-
-        var width = ImageWidth.ToString(CultureInfo.InvariantCulture);
-        return CreateUri(url.Replace("{width}", width, StringComparison.Ordinal));
-    }
-
-    private static Uri? CreateUri(string? value)
-    {
-        return Uri.TryCreate(value, UriKind.Absolute, out var uri) ? uri : null;
     }
 
     private async Task<ProgramSet> FetchProgramSetAsync(string showId, CancellationToken cancellationToken)
@@ -196,7 +178,7 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
 
     private async Task<ProgramSet> FetchProgramSetPageAsync(string showId, string? after, CancellationToken cancellationToken)
     {
-        var endpoint = options.Value.GraphQlEndpoint
+        var endpoint = options.CurrentValue.GraphQlEndpoint
             ?? throw new InvalidOperationException("GraphQlEndpoint must be configured when podcasts are enabled.");
         var request = new GraphQlRequest
         {
@@ -209,19 +191,27 @@ internal sealed class GraphQlEpisodeSource(HttpClient httpClient, IOptions<PodBr
             },
         };
 
-        using var requestContent = JsonContent.Create(request, options: SerializerOptions);
-        using var response = await httpClient.PostAsync(endpoint, requestContent, cancellationToken);
-        response.EnsureSuccessStatusCode();
+        using var requestContent = JsonContent.Create(request, options: GraphQlClient.SerializerOptions);
 
-        await using var contentStream = await response.Content.ReadAsStreamAsync(cancellationToken);
-        var payload = await JsonSerializer.DeserializeAsync<GraphQlResponse>(contentStream, SerializerOptions, cancellationToken);
+        // IDisposableAnalyzers flags this as undisposed, but per Microsoft's IHttpClientFactory guidance,
+        // HttpClient instances obtained via CreateClient() should NOT be disposed by the caller - the
+        // factory owns and pools the underlying HttpMessageHandler across calls; disposing here would tear
+        // down that pooling and (as verified while implementing this) breaks pagination, which calls this
+        // method repeatedly and would otherwise get an already-disposed client on the second page.
+#pragma warning disable IDISP001
+        var httpClient = httpClientFactory.CreateClient(HttpClientName);
+#pragma warning restore IDISP001
+        var data = await graphQlClient.ExecuteAsync<GraphQlData>(httpClient, endpoint, request, GraphQlClient.SerializerOptions, cancellationToken);
 
-        return ExtractProgramSet(payload, showId);
+        return ExtractProgramSet(data, showId);
     }
 }
 
 internal sealed class GraphQlRequest
 {
+    // The single call site (FetchProgramSetPageAsync) always sets Query explicitly, so this default is
+    // structurally unreachable and cannot be exercised by tests.
+    [ExcludeFromCodeCoverage(Justification = "Query is always set explicitly at its only call site; see comment above.")]
     public string Query { get; init; } = string.Empty;
 
     public Variables Variables { get; init; } = new();
@@ -229,6 +219,9 @@ internal sealed class GraphQlRequest
 
 internal sealed class Variables
 {
+    // The single call site (FetchProgramSetPageAsync) always sets ShowId explicitly, so this default is
+    // structurally unreachable and cannot be exercised by tests.
+    [ExcludeFromCodeCoverage(Justification = "ShowId is always set explicitly at its only call site; see comment above.")]
     public string ShowId { get; init; } = string.Empty;
 
     public int First { get; init; }
@@ -236,21 +229,9 @@ internal sealed class Variables
     public string? After { get; init; }
 }
 
-internal sealed class GraphQlResponse
-{
-    public GraphQlData? Data { get; init; }
-
-    public IReadOnlyList<GraphQlError>? Errors { get; init; }
-}
-
 internal sealed class GraphQlData
 {
     public ProgramSet? ProgramSet { get; init; }
-}
-
-internal sealed class GraphQlError
-{
-    public string Message { get; init; } = string.Empty;
 }
 
 internal sealed record ProgramSet
@@ -323,6 +304,9 @@ internal sealed record ImageType
 
 internal sealed record AssetType
 {
+    // Only reachable when DownloadUrl is absent; CreateUri then rejects this default (and any other
+    // non-absolute-URI string) identically, so this default's specific content is not observable by tests.
+    [ExcludeFromCodeCoverage(Justification = "Default value is behaviorally equivalent to any other invalid-URI string; see comment above.")]
     public string Url { get; init; } = string.Empty;
 
     public string? DownloadUrl { get; init; }

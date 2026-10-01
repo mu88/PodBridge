@@ -21,6 +21,9 @@ internal static class AuthenticationServiceCollectionExtensions
         return services;
     }
 
+    // Every policy below explicitly names its own scheme (see ConfigureUiAuthorizationPolicy/
+    // ConfigureApiAuthorizationPolicy), so these defaults are never actually consulted - equivalent mutants.
+    // Stryker disable once all: defaults are never consulted, every policy names its scheme explicitly
     private static void ConfigureAuthentication(AuthenticationOptions options)
     {
         options.DefaultAuthenticateScheme = PodBridgeAuthenticationSchemes.UiCookie; // NOSONAR
@@ -35,13 +38,21 @@ internal static class AuthenticationServiceCollectionExtensions
         options.Cookie.SameSite = SameSiteMode.Lax;
         options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
         options.LoginPath = "/login";
+
+        // LogoutPath only matters for the framework's automatic "remote sign-out" redirect; this app signs out
+        // via its own explicit /logout minimal-API endpoint (LogoutEndpointExtensions), so it's never consulted.
+        // Stryker disable once all: never consulted, /logout is handled by an explicit endpoint, not this redirect
         options.LogoutPath = "/logout";
     }
 
     private static void ConfigureUiAuthorizationPolicy(AuthorizationPolicyBuilder policy)
     {
-        policy.AddAuthenticationSchemes(PodBridgeAuthenticationSchemes.UiCookie);
         policy.RequireAuthenticatedUser();
+
+        // UiCookie is also ConfigureAuthentication's default scheme, so removing this explicit scheme falls
+        // back to the identical default - equivalent mutant.
+        // Stryker disable once all: redundant with the identical app-wide default scheme
+        policy.AddAuthenticationSchemes(PodBridgeAuthenticationSchemes.UiCookie);
     }
 
     private static void ConfigureApiAuthorizationPolicy(AuthorizationPolicyBuilder policy)

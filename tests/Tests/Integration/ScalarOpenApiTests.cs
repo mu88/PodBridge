@@ -55,6 +55,31 @@ public sealed class ScalarOpenApiTests
         security.GetArrayLength().Should().BeGreaterThan(0);
         security[0].TryGetProperty("basicAuth", out var basicAuthRequirement).Should().BeTrue();
         basicAuthRequirement.ValueKind.Should().Be(JsonValueKind.Array);
+
+        getPodcasts.GetProperty("operationId").GetString().Should().Be("GetPodcasts");
+        getPodcasts.GetProperty("summary").GetString().Should().Be("Lists all configured podcasts.");
+        getPodcasts.GetProperty("description").GetString()
+            .Should().Be("Returns one JSON item per configured podcast with the public feed URL and a cached or placeholder title.");
+        GetTagNames(getPodcasts).Should().Contain("Podcasts");
+
+        var getPodcastFeed = paths.GetProperty("/api/podcasts/{podcastId}").GetProperty("get");
+        getPodcastFeed.GetProperty("operationId").GetString().Should().Be("GetPodcastFeed");
+        getPodcastFeed.GetProperty("summary").GetString().Should().Be("Gets a cached podcast feed.");
+        getPodcastFeed.GetProperty("description").GetString()
+            .Should().Be("Returns RSS 2.0 + iTunes XML by default. Add ?format=json to retrieve the cached feed as JSON.");
+        GetTagNames(getPodcastFeed).Should().Contain("Podcasts");
+    }
+
+    private static List<string?> GetTagNames(JsonElement operation)
+    {
+        var tagNames = new List<string?>();
+        using var tags = operation.GetProperty("tags").EnumerateArray();
+        while (tags.MoveNext())
+        {
+            tagNames.Add(tags.Current.GetString());
+        }
+
+        return tagNames;
     }
 
     private static TestWebApplicationFactory CreateFactory()

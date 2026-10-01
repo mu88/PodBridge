@@ -22,15 +22,13 @@ public class PodBridgeOptionsTests
     }
 
     [Test]
-    public void BindConfiguration_WithValidPodcastsConfig_PopulatesOptionsCorrectly()
+    public void BindConfiguration_WithValidConfig_PopulatesOptionsCorrectly()
     {
         // Arrange
         var configDict = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             { "PodBridge:RefreshIntervalMinutes", "120" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
-            { "PodBridge:Podcasts:0:PodcastId", "show-1" },
-            { "PodBridge:Podcasts:0:ShowId", "platform-show-1" },
         };
 
         var config = new ConfigurationBuilder()
@@ -45,22 +43,14 @@ public class PodBridgeOptionsTests
         // Assert
         testee.RefreshIntervalMinutes.Should().Be(120);
         testee.GraphQlEndpoint.Should().Be(new Uri("https://fixture.test/graphql"));
-        testee.Podcasts.Should().HaveCount(1);
-        testee.Podcasts[0].PodcastId.Should().Be("show-1");
-        testee.Podcasts[0].ShowId.Should().Be("platform-show-1");
     }
 
     [Test]
-    public void BindConfiguration_WithEmptyPodcasts_DefaultsToEmptyList()
+    public void BindConfiguration_WithEmptyConfig_KeepsDefaults()
     {
         // Arrange
-        var configDict = new Dictionary<string, string?>(StringComparer.Ordinal)
-        {
-            { "PodBridge:RefreshIntervalMinutes", "360" },
-        };
-
         var config = new ConfigurationBuilder()
-            .AddInMemoryCollection(configDict)
+            .AddInMemoryCollection([])
             .Build();
 
         var testee = new PodBridgeOptions();
@@ -69,7 +59,8 @@ public class PodBridgeOptionsTests
         config.GetSection(PodBridgeOptions.SectionName).Bind(testee);
 
         // Assert
-        testee.Podcasts.Should().BeEmpty();
+        testee.RefreshIntervalMinutes.Should().Be(360);
+        testee.BackgroundRefreshEnabled.Should().BeTrue();
     }
 
     [Test]
@@ -96,72 +87,6 @@ public class PodBridgeOptionsTests
         testee.Auth.Enabled.Should().BeTrue();
         testee.Auth.UsernameHash.Should().Be("210000.dGVzdC1zYWx0.dGVzdC1oYXNo");
         testee.Auth.PasswordHash.Should().Be("210000.b3RoZXItc2FsdA==.b3RoZXItaGFzaA==");
-    }
-
-    [Test]
-    public void Validate_DuplicatePodcastIds_ReturnsValidationError()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithPodcastId("duplicate-id"))
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithPodcastId("duplicate-id"))
-            .Build();
-
-        // Act
-        var results = options.Validate(new ValidationContext(options)).ToList();
-
-        // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("unique"));
-    }
-
-    [Test]
-    public void Validate_EmptyPodcastId_ReturnsValidationError()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithPodcastId(string.Empty))
-            .Build();
-
-        // Act
-        var results = options.Validate(new ValidationContext(options)).ToList();
-
-        // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("non-empty PodcastId"));
-    }
-
-    [Test]
-    public void Validate_EmptyShowId_ReturnsValidationError()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithShowId(string.Empty))
-            .Build();
-
-        // Act
-        var results = options.Validate(new ValidationContext(options)).ToList();
-
-        // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("non-empty ShowId"));
-    }
-
-    [Test]
-    public void Validate_DuplicateShowIds_ReturnsValidationError()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithShowId("duplicate-show-id"))
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults().WithShowId("duplicate-show-id"))
-            .Build();
-
-        // Act
-        var results = options.Validate(new ValidationContext(options)).ToList();
-
-        // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("ShowIds must be unique"));
     }
 
     [Test]
@@ -213,27 +138,11 @@ public class PodBridgeOptionsTests
     }
 
     [Test]
-    public void Validate_PodcastsWithoutGraphQlEndpoint_ReturnsValidationError()
+    public void Validate_NullGraphQlEndpoint_ReturnsNoErrors()
     {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithGraphQlEndpoint(null)
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults())
-            .Build();
-
-        // Act
-        var results = options.Validate(new ValidationContext(options)).ToList();
-
-        // Assert
-        results.Should().Contain(r => r.ErrorMessage!.Contains("GraphQlEndpoint must be configured"));
-    }
-
-    [Test]
-    public void Validate_NoPodcastsWithoutGraphQlEndpoint_ReturnsNoValidationError()
-    {
-        // Arrange: boundary case for the "podcasts.Count > 0" check - an empty Podcasts list must not
-        // require a GraphQlEndpoint, unlike a non-empty one (covered by the test above).
+        // Arrange - isolates the "GraphQlEndpoint is not null" operand of the guard: when the endpoint
+        // isn't configured at all, the absolute-URI check must be skipped entirely rather than throwing
+        // on a null dereference.
         var options = new PodBridgeOptionsBuilder()
             .WithDefaults()
             .WithGraphQlEndpoint(null)
@@ -243,7 +152,7 @@ public class PodBridgeOptionsTests
         var results = options.Validate(new ValidationContext(options)).ToList();
 
         // Assert
-        results.Should().NotContain(r => r.ErrorMessage!.Contains("GraphQlEndpoint must be configured"));
+        results.Should().BeEmpty();
     }
 
     [Test]
@@ -252,7 +161,6 @@ public class PodBridgeOptionsTests
         // Arrange
         var options = new PodBridgeOptionsBuilder()
             .WithDefaults()
-            .WithPodcast(new PodcastConfigBuilder().WithDefaults())
             .Build();
 
         // Act
@@ -262,4 +170,3 @@ public class PodBridgeOptionsTests
         results.Should().BeEmpty();
     }
 }
-

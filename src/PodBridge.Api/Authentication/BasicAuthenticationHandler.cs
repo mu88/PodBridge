@@ -11,7 +11,7 @@ public sealed class BasicAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
     UrlEncoder encoder,
-    IOptions<PodBridgeOptions> podBridgeOptions)
+    IOptionsSnapshot<PodBridgeOptions> podBridgeOptions)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     public const string SchemeName = "Basic";

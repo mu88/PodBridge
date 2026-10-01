@@ -1,9 +1,9 @@
 <Configuration>
     <CodeCoverage>
+        <!-- Broad pattern instead of one entry per assembly, so new PodBridge.* projects are covered automatically. -->
         <ModulePaths>
             <Include>
-                <ModulePath>.*PodBridge\.Api\.dll$</ModulePath>
-                <ModulePath>.*PodBridge\.Logic\.dll$</ModulePath>
+                <ModulePath>.*PodBridge\..*\.dll$</ModulePath>
             </Include>
         </ModulePaths>
         <!-- Program.cs is the ASP.NET Core composition root (DI wiring, middleware pipeline); already excluded from

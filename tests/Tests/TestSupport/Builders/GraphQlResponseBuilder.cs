@@ -50,7 +50,7 @@ internal sealed class GraphQlResponseBuilder
 
     public string BuildJson()
     {
-        var graphQlResponse = new GraphQlResponse
+        var graphQlResponse = new GraphQlResponse<GraphQlData>
         {
             Data = _hasDataWrapper ? new GraphQlData { ProgramSet = _programSet } : null,
             Errors = _errors,

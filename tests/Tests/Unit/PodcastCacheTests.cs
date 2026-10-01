@@ -31,7 +31,7 @@ public class PodcastCacheTests
         _testee.Update("fixture-show", podcast);
 
         // Assert
-        var retrieved = _testee.TryGetFull("fixture-show");
+        var retrieved = _testee.FindFull("fixture-show");
         retrieved.Should().NotBeNull();
         retrieved!.Podcast.Title.Should().Be("Fixture Podcast");
     }
@@ -46,7 +46,7 @@ public class PodcastCacheTests
         _testee.Update("fixture-show", podcast);
 
         // Assert
-        var retrieved = _testee.TryGetFull("fixture-show");
+        var retrieved = _testee.FindFull("fixture-show");
         retrieved!.LastUpdated.Should().Be(_timeProvider.GetUtcNow());
     }
 
@@ -62,7 +62,7 @@ public class PodcastCacheTests
         _testee.Update("fixture-show", podcast2);
 
         // Assert
-        var retrieved = _testee.TryGetFull("fixture-show");
+        var retrieved = _testee.FindFull("fixture-show");
         retrieved.Should().NotBeNull();
         retrieved!.Podcast.Title.Should().Be("Second Title");
     }
@@ -80,15 +80,15 @@ public class PodcastCacheTests
         _testee.Update("fixture-show", podcast2);
 
         // Assert
-        var retrieved = _testee.TryGetFull("fixture-show");
+        var retrieved = _testee.FindFull("fixture-show");
         retrieved!.LastUpdated.Should().Be(_timeProvider.GetUtcNow());
     }
 
     [Test]
-    public void TryGetFull_NonExistentPodcastId_ReturnsNull()
+    public void FindFull_NonExistentPodcastId_ReturnsNull()
     {
         // Act
-        var retrieved = _testee.TryGetFull("non-existent-show");
+        var retrieved = _testee.FindFull("non-existent-show");
 
         // Assert
         retrieved.Should().BeNull();

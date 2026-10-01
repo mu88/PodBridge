@@ -74,6 +74,7 @@ public sealed class CookieAuthenticationTests
         loginResponse.Headers.Location?.OriginalString.Should().Be("http://localhost/");
         loginResponse.Headers.TryGetValues("Set-Cookie", out var cookies).Should().BeTrue();
         cookies.Should().Contain(cookie => cookie.Contains("PodBridge.UiAuth=", StringComparison.Ordinal));
+        cookies.Should().Contain(cookie => cookie.Contains("PodBridge.UiAuth=", StringComparison.Ordinal) && cookie.Contains("httponly", StringComparison.OrdinalIgnoreCase));
         rootResponse.Should().Be200Ok();
     }
 
@@ -153,6 +154,32 @@ public sealed class CookieAuthenticationTests
     }
 
     [Test]
+    public async Task PostLogin_WithUsernameFieldOmittedFromForm_FallsBackToEmptyAndFailsValidation()
+    {
+        // Arrange - omits "Input.Username" entirely (rather than sending it as ""), so LoginRequest.Username's
+        // declared default value is what actually reaches validation, not a model-bound empty string.
+        await using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+        var formState = await HtmlFormHelper.GetAntiforgeryFormStateAsync(client, "/login");
+        client.DefaultRequestHeaders.Remove("Cookie");
+        client.DefaultRequestHeaders.Add("Cookie", formState.CookieHeader);
+        using var content = new FormUrlEncodedContent(new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["_handler"] = "login",
+            ["Input.Password"] = "testpass",
+            ["__RequestVerificationToken"] = formState.Token,
+        });
+
+        // Act
+        using var response = await client.PostAsync("/login", content);
+
+        // Assert
+        response.Should().Be200Ok();
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("Username is required.");
+    }
+
+    [Test]
     public async Task PostLogin_WithExternalReturnUrl_RedirectsToRootInsteadOfExternalSite()
     {
         // Arrange
@@ -218,6 +245,21 @@ public sealed class CookieAuthenticationTests
         // Assert
         response.Should().Be302Found();
         response.Headers.Location?.OriginalString.Should().Be("http://localhost/");
+    }
+
+    [Test]
+    public async Task PostLogout_When_AuthDisabled_Returns404()
+    {
+        // Arrange - the /logout endpoint is only mapped when auth is enabled.
+        await using var factory = new TestWebApplicationFactory(authEnabled: false);
+        using var client = CreateClient(factory);
+
+        // Act
+        using var content = new FormUrlEncodedContent([]);
+        using var response = await client.PostAsync("/logout", content);
+
+        // Assert
+        response.Should().Be404NotFound();
     }
 
     [Test]

@@ -1,4 +1,4 @@
-using PodBridge.Logic.Domain;
+using PodBridge.Logic.Shared;
 
 namespace Tests.TestSupport.Builders;
 

@@ -33,3 +33,26 @@ internal sealed record PodcastEpisodeResponse
     public string? EpisodeNumber { get; init; }
     public Uri? Link { get; init; }
 }
+
+internal sealed record PodcastSearchResultResponse
+{
+    required public string ShowId { get; init; }
+    required public string Title { get; init; }
+    public int EpisodeCount { get; init; }
+}
+
+internal sealed record AddPodcastRequest
+{
+    required public string ShowId { get; init; }
+
+    // Known from a prior search result - if omitted, the ShowId's title is resolved via the podcast
+    // directory first (see PodcastManagementService.AddByShowIdAsync).
+    public string? Title { get; init; }
+}
+
+internal sealed record AddPodcastResponse
+{
+    required public string Status { get; init; }
+    public string? Title { get; init; }
+    public string? PodcastId { get; init; }
+}

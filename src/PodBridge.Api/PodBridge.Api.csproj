@@ -10,10 +10,16 @@
 
   <ItemGroup>
     <ProjectReference Include="../PodBridge.Logic/PodBridge.Logic.csproj" />
+    <ProjectReference Include="../PodBridge.Persistence/PodBridge.Persistence.csproj" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
     <PackageReference Include="mu88.Shared" />
     <PackageReference Include="Scalar.AspNetCore" />
   </ItemGroup>

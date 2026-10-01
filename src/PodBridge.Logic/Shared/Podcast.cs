@@ -1,4 +1,4 @@
-namespace PodBridge.Logic.Domain;
+namespace PodBridge.Logic.Shared;
 
 public sealed record Podcast(
     string Title,

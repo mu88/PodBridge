@@ -5,8 +5,10 @@ using FluentAssertions;
 using Microsoft.Extensions.Options;
 using NSubstitute;
 using NUnit.Framework;
+using PodBridge.Logic;
 using PodBridge.Logic.Config;
 using PodBridge.Logic.EpisodeSourcing;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit;
@@ -16,7 +18,8 @@ namespace Tests.Unit;
 public class GraphQlEpisodeSourceTests
 {
     private HttpClient _httpClient = null!;
-    private IOptions<PodBridgeOptions> _options = null!;
+    private IHttpClientFactory _httpClientFactory = null!;
+    private IOptionsMonitor<PodBridgeOptions> _options = null!;
     private GraphQlEpisodeSource _testee = null!;
     private HttpMessageHandlerStub _httpMessageHandler = null!;
 
@@ -28,11 +31,15 @@ public class GraphQlEpisodeSourceTests
         _httpClient?.Dispose();
         _httpMessageHandler = new HttpMessageHandlerStub();
         _httpClient = new HttpClient(_httpMessageHandler);
-        _options = Options.Create(new PodBridgeOptionsBuilder()
+        _httpClientFactory = Substitute.For<IHttpClientFactory>();
+#pragma warning disable IDISP004 // NSubstitute call-configuration syntax invokes CreateClient only to record the call spec; no extra HttpClient instance is ever actually created.
+        _httpClientFactory.CreateClient(GraphQlEpisodeSource.HttpClientName).Returns(_httpClient);
+#pragma warning restore IDISP004
+        _options = new TestOptionsMonitor<PodBridgeOptions>(new PodBridgeOptionsBuilder()
             .WithDefaults()
             .WithGraphQlEndpoint(new Uri("https://fixture.test/graphql"))
             .Build());
-        _testee = new GraphQlEpisodeSource(_httpClient, _options);
+        _testee = new GraphQlEpisodeSource(_httpClientFactory, _options, new GraphQlClient());
     }
 
     [TearDown]
@@ -60,7 +67,12 @@ public class GraphQlEpisodeSourceTests
         // Assert
         result.Episodes.Should().HaveCount(1);
         result.Episodes[0].Title.Should().Be("Episode 1");
+        result.Episodes[0].Description.Should().Be("Fixture episode description");
+        result.Episodes[0].AudioUrl.OriginalString.Should().Be("https://fixture.test/download/audio.mp3");
         result.Title.Should().Be("Fixture Show");
+        result.Description.Should().Be("Fixture show description");
+        _httpMessageHandler.RequestBodies.Should().ContainSingle()
+            .Which.Should().Contain("\"showId\":\"valid-show\"").And.Contain("\"first\":50");
     }
 
     [Test]
@@ -84,6 +96,8 @@ public class GraphQlEpisodeSourceTests
 
         // Assert
         result.Episodes.Should().HaveCount(1);
+        activityListenerScope.StoppedActivities.Should().ContainSingle()
+            .Which.Tags.Should().Contain(tag => tag.Key == Observability.PodcastIdTag && tag.Value == podcastConfig.PodcastId);
     }
 
     [Test]
@@ -161,6 +175,42 @@ public class GraphQlEpisodeSourceTests
         // Assert
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("*exceeded the maximum of 100 pages*");
+    }
+
+    [Test]
+    public async Task FetchEpisodesAsync_PaginationAtExactlyMaxPages_AggregatesAllPagesWithoutThrowing()
+    {
+        // Arrange - exactly 100 pages (the configured maximum), last one ending the pagination: distinguishes
+        // the boundary check being "> MaxPages" (must not throw here) from a mutated "&gt;= MaxPages" (would
+        // throw one page too early).
+        var podcastConfig = new PodcastConfigBuilder().WithDefaults().WithShowId("full-pagination-show").Build();
+
+// IDISP004: ownership of these HttpResponseMessage instances transfers to HttpMessageHandlerStub's
+        // response queue and, from there, to the HttpClient/GraphQlEpisodeSource that consumes them.
+#pragma warning disable IDISP004
+        _httpMessageHandler.SetResponses(Enumerable.Range(1, 100)
+            .Select(pageNumber =>
+            {
+                var isLastPage = pageNumber == 100;
+                var item = new GraphQlItemBuilder().WithDefaults().Build() with { Id = $"item{pageNumber.ToString(CultureInfo.InvariantCulture)}" };
+                var pageJson = new GraphQlResponseBuilder()
+                    .WithDefaults()
+                    .WithProgramSet(new ProgramSetBuilder()
+                        .WithDefaults()
+                        .WithItems(item)
+                        .WithPagination(hasNextPage: !isLastPage, endCursor: isLastPage ? null : $"cursor{pageNumber.ToString(CultureInfo.InvariantCulture)}")
+                        .Build())
+                    .BuildJson();
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(pageJson) };
+            })
+            .ToArray());
+#pragma warning restore IDISP004
+
+        // Act
+        var result = await _testee.FetchEpisodesAsync(podcastConfig, CancellationToken.None);
+
+        // Assert
+        result.Episodes.Should().HaveCount(100);
     }
 
     [Test]
@@ -285,6 +335,33 @@ public class GraphQlEpisodeSourceTests
         result.Episodes.Should().HaveCount(1);
         result.Episodes[0].AudioUrl.OriginalString.Should().Contain("audio.mp3");
         result.Episodes[0].AudioMimeType.Should().Be("audio/mpeg");
+    }
+
+    [Test]
+    public async Task FetchEpisodesAsync_AudioHasInvalidUrlButValidDownloadUrl_StillSelectsIt()
+    {
+        // Arrange - Url is not an absolute URI (would fail GraphQlClient.CreateUri), only DownloadUrl is
+        // usable: distinguishes the candidate-selection predicate checking "DownloadUrl ?? Url" from a
+        // mutated predicate that only checks Url (which would find no usable candidate here).
+        var podcastConfig = new PodcastConfigBuilder().WithDefaults().WithShowId("download-url-only-show").Build();
+        var item = new GraphQlItemBuilder()
+            .WithDefaults()
+            .Build() with
+        {
+            Audios = [new AssetType { Url = "not-an-absolute-uri", DownloadUrl = "https://fixture.test/download/only.mp3", MimeType = "audio/mpeg" }],
+        };
+        var responseJson = new GraphQlResponseBuilder()
+            .WithDefaults()
+            .WithProgramSet(new ProgramSetBuilder().WithDefaults().WithItems(item).Build())
+            .BuildJson();
+        _httpMessageHandler.SetResponse(HttpStatusCode.OK, responseJson);
+
+        // Act
+        var result = await _testee.FetchEpisodesAsync(podcastConfig, CancellationToken.None);
+
+        // Assert
+        result.Episodes.Should().HaveCount(1);
+        result.Episodes[0].AudioUrl.OriginalString.Should().Be("https://fixture.test/download/only.mp3");
     }
 
     [Test]
@@ -480,6 +557,41 @@ public class GraphQlEpisodeSourceTests
     }
 
     [Test]
+    public async Task FetchEpisodesAsync_ResponseOmitsOptionalTextFields_FallsBackToDtoDefaults()
+    {
+        // Arrange - raw JSON that omits (not just nulls) title/id/mimeType so the DTOs' "= string.Empty"
+        // defaults are actually exercised, the way a real GraphQL API response with sparse fields would.
+        var podcastConfig = new PodcastConfigBuilder().WithDefaults().WithShowId("sparse-response-show").Build();
+        const string responseJson = """
+            {
+              "data": {
+                "programSet": {
+                  "publicationService": {},
+                  "items": {
+                    "pageInfo": { "hasNextPage": false },
+                    "nodes": [
+                      { "audios": [ { "downloadUrl": "https://fixture.test/download/audio.mp3" } ] }
+                    ]
+                  }
+                }
+              }
+            }
+            """;
+        _httpMessageHandler.SetResponse(HttpStatusCode.OK, responseJson);
+
+        // Act
+        var result = await _testee.FetchEpisodesAsync(podcastConfig, CancellationToken.None);
+
+        // Assert
+        result.Title.Should().BeEmpty();
+        result.Author.Should().BeEmpty();
+        result.Episodes.Should().ContainSingle();
+        result.Episodes[0].Guid.Should().BeEmpty();
+        result.Episodes[0].Title.Should().BeEmpty();
+        result.Episodes[0].AudioMimeType.Should().Be("audio/mpeg");
+    }
+
+    [Test]
     public async Task FetchEpisodesAsync_ItemWithNullImage_EpisodeImageUrlIsNull()
     {
         // Arrange
@@ -602,11 +714,11 @@ public class GraphQlEpisodeSourceTests
     public async Task FetchEpisodesAsync_NullGraphQlEndpoint_ThrowsInvalidOperationException()
     {
         // Arrange
-        var optionsWithNullEndpoint = Options.Create(new PodBridgeOptionsBuilder()
+        var optionsWithNullEndpoint = new TestOptionsMonitor<PodBridgeOptions>(new PodBridgeOptionsBuilder()
             .WithDefaults()
             .WithGraphQlEndpoint(null)
             .Build());
-        var testee = new GraphQlEpisodeSource(_httpClient, optionsWithNullEndpoint);
+        var testee = new GraphQlEpisodeSource(_httpClientFactory, optionsWithNullEndpoint, new GraphQlClient());
         var podcastConfig = new PodcastConfigBuilder().WithDefaults().Build();
 
         // Act
@@ -620,6 +732,9 @@ public class GraphQlEpisodeSourceTests
     private sealed class HttpMessageHandlerStub : HttpMessageHandler
     {
         private readonly Queue<HttpResponseMessage> _responses = new();
+        private readonly List<string> _requestBodies = [];
+
+        public IReadOnlyList<string> RequestBodies => _requestBodies;
 
         public void SetResponse(HttpStatusCode statusCode, string content)
         {
@@ -637,9 +752,14 @@ public class GraphQlEpisodeSourceTests
             }
         }
 
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
-            return Task.FromResult(_responses.Dequeue());
+            if (request.Content is not null)
+            {
+                _requestBodies.Add(await request.Content.ReadAsStringAsync(cancellationToken));
+            }
+
+            return _responses.Dequeue();
         }
     }
 }

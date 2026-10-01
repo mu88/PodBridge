@@ -1,25 +1,28 @@
+using System.Diagnostics.CodeAnalysis;
 using Bunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using NUnit.Framework;
 using PodBridge.Logic.Caching;
 using PodBridge.Logic.Config;
 using PodBridge.Logic.Feeds;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit.Pages;
 
 [TestFixture]
 [Category("Unit")]
+[SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP006:Implement IDisposable", Justification = "NUnit tear-down disposes the per-test SQLite scope and bUnit context.")]
 public sealed class IndexTests
 {
     private BunitContext _ctx = null!;
     private IPodcastCache _podcastCache = null!;
     private IFeedUrlBuilder _feedUrlBuilder = null!;
     private IHttpContextAccessor _httpContextAccessor = null!;
+    private SqliteAppDbContextFactoryScope? _dbContextFactoryScope;
 
     [SetUp]
     public void SetUp()
@@ -33,6 +36,7 @@ public sealed class IndexTests
     [TearDown]
     public void TearDown()
     {
+        _dbContextFactoryScope?.Dispose();
         _ctx.Dispose();
     }
 
@@ -40,7 +44,7 @@ public sealed class IndexTests
     public void Render_WithNoConfiguredShows_DisplaysHeadingAndEmptyState()
     {
         // Arrange
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().Build());
+        ConfigureServices([]);
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
@@ -56,14 +60,14 @@ public sealed class IndexTests
         // Arrange
         var firstShow = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show-1").WithShowId("show-1-id").Build();
         var secondShow = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show-2").WithShowId("show-2-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(firstShow).WithPodcast(secondShow).Build());
+        ConfigureServices([firstShow, secondShow]);
         _feedUrlBuilder.BuildFeedUrl(firstShow.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show-1");
         _feedUrlBuilder.BuildFeedUrl(secondShow.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show-2");
 
         var podcast1 = new PodcastBuilder().WithDefaults().WithTitle("Example Show 1").Build();
         var podcast2 = new PodcastBuilder().WithDefaults().WithTitle("Example Show 2").Build();
-        _podcastCache.TryGetFull(firstShow.PodcastId).Returns(new CachedPodcast(podcast1, DateTimeOffset.UtcNow));
-        _podcastCache.TryGetFull(secondShow.PodcastId).Returns(new CachedPodcast(podcast2, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(firstShow.PodcastId).Returns(new CachedPodcast(podcast1, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(secondShow.PodcastId).Returns(new CachedPodcast(podcast2, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
@@ -80,9 +84,9 @@ public sealed class IndexTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show");
-        _podcastCache.TryGetFull(show.PodcastId).Returns((CachedPodcast?)null);
+        _podcastCache.FindFull(show.PodcastId).Returns((CachedPodcast?)null);
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
@@ -102,10 +106,10 @@ public sealed class IndexTests
         // timezone, so the UTC timestamp is shown as-is with an explicit "(UTC)" suffix instead of
         // silently mislabeling it as local time.
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show");
         var lastUpdated = new DateTimeOffset(2026, 8, 31, 14, 1, 0, TimeSpan.Zero);
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(new PodcastBuilder().WithDefaults().Build(), lastUpdated));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(new PodcastBuilder().WithDefaults().Build(), lastUpdated));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
@@ -119,10 +123,10 @@ public sealed class IndexTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/feeds/example-show");
         var podcast = new PodcastBuilder().WithDefaults().Build() with { ImageUrl = null };
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
@@ -131,11 +135,14 @@ public sealed class IndexTests
         testee.FindAll("img").Should().BeEmpty();
     }
 
-    private void ConfigureServices(PodBridgeOptions options)
+    private void ConfigureServices(IReadOnlyList<PodcastConfig> podcasts)
     {
+        _dbContextFactoryScope?.Dispose();
+        _dbContextFactoryScope = new SqliteAppDbContextFactoryScope(podcasts);
+
         _ctx.Services.AddSingleton(_podcastCache);
         _ctx.Services.AddSingleton(_feedUrlBuilder);
         _ctx.Services.AddSingleton(_httpContextAccessor);
-        _ctx.Services.AddSingleton(Options.Create(options));
+        _ctx.Services.AddSingleton(_dbContextFactoryScope.DbContextFactory);
     }
 }

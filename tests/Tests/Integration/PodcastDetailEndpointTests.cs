@@ -47,6 +47,8 @@ public sealed class PodcastDetailEndpointTests
 
         // Assert
         response.Should().Be503ServiceUnavailable();
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Be("Feed not yet generated, please retry shortly.");
     }
 
     [Test]
@@ -198,5 +200,29 @@ public sealed class PodcastDetailEndpointTests
 
         // Assert
         response.Should().Be404NotFound();
+    }
+
+    [Test]
+    public async Task GetPodcast_WithFormatJson_OrdersEpisodesByPublishDateDescending()
+    {
+        // Arrange
+        var olderEpisode = new EpisodeBuilder().WithDefaults().Build()
+            with { Title = "Older Episode", PublishDate = new DateTimeOffset(2024, 1, 1, 0, 0, 0, TimeSpan.Zero) };
+        var newerEpisode = new EpisodeBuilder().WithDefaults().Build()
+            with { Title = "Newer Episode", PublishDate = new DateTimeOffset(2024, 6, 1, 0, 0, 0, TimeSpan.Zero) };
+        var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(olderEpisode, newerEpisode).Build();
+        await using var factory = new TestWebApplicationFactory(testPodcast: podcast);
+        using var client = factory.CreateClient();
+
+        // Act
+        using var response = await client.GetAsync("/api/podcasts/test-show?format=json");
+
+        // Assert
+        response.Should().Be200Ok();
+        var content = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(content);
+        var episodes = json.RootElement.GetProperty("episodes");
+        episodes[0].GetProperty("title").GetString().Should().Be("Newer Episode");
+        episodes[1].GetProperty("title").GetString().Should().Be("Older Episode");
     }
 }

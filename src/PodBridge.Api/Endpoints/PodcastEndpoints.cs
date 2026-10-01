@@ -1,8 +1,8 @@
-using Microsoft.Extensions.Options;
+using Microsoft.EntityFrameworkCore;
 using PodBridge.Api.Rss;
 using PodBridge.Logic.Caching;
-using PodBridge.Logic.Config;
 using PodBridge.Logic.Feeds;
+using PodBridge.Persistence;
 
 namespace PodBridge.Api.Endpoints;
 
@@ -30,22 +30,24 @@ internal static class PodcastEndpoints
             .RequireRateLimiting("podcasts-endpoint");
     }
 
-    private static IResult GetPodcastFeed(
+    private static async Task<IResult> GetPodcastFeed(
         string podcastId,
         HttpRequest request,
         IPodcastCache podcastCache,
         IFeedUrlBuilder feedUrlBuilder,
-        IOptions<PodBridgeOptions> opts)
+        IDbContextFactory<AppDbContext> dbContextFactory,
+        CancellationToken cancellationToken)
     {
         // Check config first (404 if never configured), then cache (503 if configured but not yet fetched)
-        var podcastConfig = opts.Value.Podcasts
-            .FirstOrDefault(configuredPodcast => string.Equals(configuredPodcast.PodcastId, podcastId, StringComparison.Ordinal));
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var podcastConfig = await dbContext.Podcasts
+            .FirstOrDefaultAsync(configuredPodcast => configuredPodcast.PodcastId == podcastId, cancellationToken);
         if (podcastConfig is null)
         {
             return Results.NotFound();
         }
 
-        var resolvedPodcast = podcastCache.TryGetFull(podcastId);
+        var resolvedPodcast = podcastCache.FindFull(podcastId);
         if (resolvedPodcast is null)
         {
             return Results.Text("Feed not yet generated, please retry shortly.", statusCode: StatusCodes.Status503ServiceUnavailable);
@@ -102,17 +104,20 @@ internal static class PodcastEndpoints
         return Results.Text(feedXml, RssXmlNamespaces.RssMediaType);
     }
 
-    private static IResult GetPodcasts(
+    private static async Task<IResult> GetPodcasts(
         HttpRequest request,
         IPodcastCache podcastCache,
         IFeedUrlBuilder feedUrlBuilder,
-        IOptions<PodBridgeOptions> opts)
+        IDbContextFactory<AppDbContext> dbContextFactory,
+        CancellationToken cancellationToken)
     {
         // Iterate config to show all configured podcasts (even not-yet-fetched), enrich per-row from cache if available
-        var podcastList = opts.Value.Podcasts.Select(podcast =>
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var configuredPodcasts = await dbContext.Podcasts.ToListAsync(cancellationToken);
+        var podcastList = configuredPodcasts.Select(podcast =>
         {
             var feedUrl = feedUrlBuilder.BuildFeedUrl(podcast.PodcastId, request.ToBaseUrl());
-            var cached = podcastCache.TryGetFull(podcast.PodcastId);
+            var cached = podcastCache.FindFull(podcast.PodcastId);
             var title = cached?.Podcast.Title ?? $"Podcast {podcast.ShowId} - not yet fetched";
 
             return new PodcastSummaryResponse

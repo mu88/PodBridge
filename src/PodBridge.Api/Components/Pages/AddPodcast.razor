@@ -1,0 +1,179 @@
+@page "/podcasts/add"
+@rendermode InteractiveServer
+@using System.Diagnostics.CodeAnalysis
+@using Microsoft.Extensions.Logging
+@using PodBridge.Logic.EpisodeSourcing
+@using PodBridge.Logic.PodcastManagement
+@namespace PodBridge.Api.Components.Pages
+@inject IPodcastDirectory PodcastDirectory
+@inject IPodcastManagementService PodcastManagementService
+@inject ILogger<AddPodcast> Logger
+
+<PageTitle>PodBridge - Add Podcast</PageTitle>
+
+<a class="action-link back-link" href="/">&larr; Back to overview</a>
+
+<section class="page-hero">
+    <div>
+        <h2>Add Podcast</h2>
+        <p>Search by show title, or paste a ShowId directly if you already know it.</p>
+    </div>
+</section>
+
+@if (_statusMessage is not null)
+{
+    <section class="surface-card empty-state" role="status">
+        <p>@_statusMessage</p>
+    </section>
+}
+
+<section class="surface-card">
+    <EditForm Model="_searchInput" FormName="search-podcast" OnSubmit="HandleSearchAsync">
+        <div class="form-field">
+            <label for="search-query">Show title</label>
+            <InputText id="search-query" @bind-Value="_searchInput.Query" autofocus />
+        </div>
+        <button type="submit" class="action-link action-link--accent">Search</button>
+    </EditForm>
+</section>
+
+@if (_searchError is not null)
+{
+    <section class="surface-card empty-state">
+        <p>@_searchError</p>
+    </section>
+}
+else if (_searchResults is { Count: > 0 })
+{
+    <section class="surface-card">
+        <div class="table-scroll">
+            <table class="podcast-table">
+                <thead>
+                    <tr>
+                        <th>Show</th>
+                        <th>Episodes</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var result in _searchResults)
+                    {
+                        <tr @key="result.ShowId">
+                            <td data-label="Show">
+                                <div class="podcast-name">@result.Title</div>
+                                <div class="podcast-id">@result.ShowId</div>
+                            </td>
+                            <td data-label="Episodes"><span class="status-pill">@result.EpisodeCount</span></td>
+                            <td data-label="">
+                                <EditForm Model="_addInput" FormName="@($"add-{result.ShowId}")" OnSubmit="@(() => HandleAddAsync(result.ShowId, result.Title))">
+                                    <button type="submit" class="action-link">Add</button>
+                                </EditForm>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </section>
+}
+else if (_searchAttempted)
+{
+    <section class="surface-card empty-state">
+        <p>No shows found for "@_searchInput.Query".</p>
+    </section>
+}
+
+<section class="surface-card">
+    <h3>Add by ShowId</h3>
+    <EditForm Model="_manualInput" FormName="add-by-show-id" OnSubmit="HandleAddByShowIdAsync">
+        <div class="form-field">
+            <label for="manual-show-id">ShowId</label>
+            <InputText id="manual-show-id" @bind-Value="_manualInput.ShowId" />
+        </div>
+        <button type="submit" class="action-link action-link--accent">Add</button>
+    </EditForm>
+</section>
+
+@code {
+    private readonly SearchInputModel _searchInput = new();
+    private readonly AddInputModel _addInput = new();
+    private readonly ManualInputModel _manualInput = new();
+    private IReadOnlyList<PodcastSearchResult>? _searchResults;
+    private bool _searchAttempted;
+    private string? _searchError;
+    private string? _statusMessage;
+
+    private async Task HandleSearchAsync()
+    {
+        _searchAttempted = true;
+        _searchError = null;
+        _statusMessage = null;
+
+        try
+        {
+            _searchResults = await PodcastDirectory.SearchAsync(_searchInput.Query, CancellationToken.None);
+        }
+        catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
+        {
+            Logger.LogWarning(exception, "Podcast search failed for query '{Query}'", _searchInput.Query);
+            _searchError = "Search failed - please try again shortly.";
+        }
+    }
+
+    private Task HandleAddAsync(string showId, string title) => AddPodcastAsync(showId, title);
+
+    private Task HandleAddByShowIdAsync()
+    {
+        var showId = _manualInput.ShowId.Trim();
+        if (string.IsNullOrWhiteSpace(showId))
+        {
+            _statusMessage = "ShowId is required.";
+            return Task.CompletedTask;
+        }
+
+        return AddByShowIdAsync(showId);
+    }
+
+    private async Task AddByShowIdAsync(string showId)
+    {
+        var result = await PodcastManagementService.AddByShowIdAsync(showId, CancellationToken.None);
+        ApplyResult(result, showId);
+    }
+
+    private async Task AddPodcastAsync(string showId, string title)
+    {
+        var result = await PodcastManagementService.AddAsync(showId, title, CancellationToken.None);
+        ApplyResult(result, showId);
+    }
+
+    private void ApplyResult(PodcastAddResult result, string showId)
+    {
+        _statusMessage = result.Status switch
+        {
+            PodcastAddStatus.Added => $"'{result.Title}' was added and is now being fetched in the background.",
+            PodcastAddStatus.ShowIdAlreadyExists => $"'{result.Title}' has already been added.",
+            PodcastAddStatus.ShowIdNotFound => $"No show found for ShowId '{showId}'.",
+            _ => "Failed to add podcast - please try again.",
+        };
+
+        if (result.Status == PodcastAddStatus.Added)
+        {
+            _searchResults = null;
+        }
+    }
+
+    private sealed class SearchInputModel
+    {
+        public string Query { get; set; } = string.Empty;
+    }
+
+    // EditForm requires a non-null Model; this form has no actual input fields (only a submit button),
+    // so an empty marker class satisfies that API requirement.
+    [SuppressMessage("Major Code Smell", "S2094:Classes should not be empty", Justification = "Intentional EditForm model marker; see comment above.")]
+    private sealed class AddInputModel;
+
+    private sealed class ManualInputModel
+    {
+        public string ShowId { get; set; } = string.Empty;
+    }
+}

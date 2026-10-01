@@ -1,26 +1,29 @@
+using System.Diagnostics.CodeAnalysis;
 using Bunit;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Options;
 using NSubstitute;
 using NUnit.Framework;
 using PodBridge.Logic.Caching;
 using PodBridge.Logic.Config;
-using PodBridge.Logic.Domain;
 using PodBridge.Logic.Feeds;
+using PodBridge.Logic.Shared;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit.Pages;
 
 [TestFixture]
 [Category("Unit")]
+[SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP006:Implement IDisposable", Justification = "NUnit tear-down disposes the per-test SQLite scope and bUnit context.")]
 public sealed class PodcastDetailTests
 {
     private BunitContext _ctx = null!;
     private IPodcastCache _podcastCache = null!;
     private IFeedUrlBuilder _feedUrlBuilder = null!;
     private IHttpContextAccessor _httpContextAccessor = null!;
+    private SqliteAppDbContextFactoryScope? _dbContextFactoryScope;
 
     [SetUp]
     public void SetUp()
@@ -34,6 +37,7 @@ public sealed class PodcastDetailTests
     [TearDown]
     public void TearDown()
     {
+        _dbContextFactoryScope?.Dispose();
         _ctx.Dispose();
     }
 
@@ -41,7 +45,7 @@ public sealed class PodcastDetailTests
     public void Render_WithUnknownId_TriggersNotFoundAndRendersNothing()
     {
         // Arrange
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().Build());
+        ConfigureServices([]);
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -56,9 +60,9 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
-        _podcastCache.TryGetFull(show.PodcastId).Returns((CachedPodcast?)null);
+        _podcastCache.FindFull(show.PodcastId).Returns((CachedPodcast?)null);
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -76,10 +80,10 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
         var podcast = new PodcastBuilder().WithDefaults().Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -96,7 +100,7 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var olderEpisode = new EpisodeBuilder().WithDefaults().Build() with
@@ -113,7 +117,7 @@ public sealed class PodcastDetailTests
             .WithTitle("Example Show")
             .WithEpisodes(olderEpisode, newerEpisode)
             .Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -133,12 +137,12 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().WithMinimalMetadata().Build() with { Title = "No Duration Episode" };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -153,13 +157,13 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var longDescription = string.Join(' ', Enumerable.Repeat("word", 100));
         var episode = new EpisodeBuilder().WithDefaults().Build() with { Description = longDescription };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -174,12 +178,12 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().Build() with { Description = "A short description." };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -196,12 +200,12 @@ public sealed class PodcastDetailTests
         // timezone, so the UTC timestamp is shown as-is with an explicit "(UTC)" suffix instead of
         // silently mislabeling it as local time.
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().Build() with { PublishDate = new DateTimeOffset(2026, 8, 24, 17, 41, 0, TimeSpan.Zero) };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -216,12 +220,12 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().Build() with { ImageUrl = new Uri("https://fixture.test/episode.jpg") };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -236,12 +240,12 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().Build() with { ImageUrl = null };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -256,11 +260,11 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var podcast = new PodcastBuilder().WithDefaults().Build() with { ImageUrl = null };
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -275,12 +279,12 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var episode = new EpisodeBuilder().WithDefaults().Build() with { DurationSeconds = 3661 };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -295,13 +299,13 @@ public sealed class PodcastDetailTests
     {
         // Arrange
         var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
-        ConfigureServices(new PodBridgeOptionsBuilder().WithDefaults().WithPodcast(show).Build());
+        ConfigureServices([show]);
         _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns("https://feeds.example.test/api/feeds/example-show");
 
         var descriptionWithoutSpaces = new string('a', 300);
         var episode = new EpisodeBuilder().WithDefaults().Build() with { Description = descriptionWithoutSpaces };
         var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
-        _podcastCache.TryGetFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
+        _podcastCache.FindFull(show.PodcastId).Returns(new CachedPodcast(podcast, DateTimeOffset.UtcNow));
 
         // Act
         using var testee = _ctx.Render<PodBridge.Api.Components.Pages.PodcastDetail>(parameters => parameters
@@ -311,11 +315,14 @@ public sealed class PodcastDetailTests
         testee.Find("tbody tr").TextContent.Should().Contain(new string('a', 220) + " [...]").And.NotContain(descriptionWithoutSpaces);
     }
 
-    private void ConfigureServices(PodBridgeOptions options)
+    private void ConfigureServices(IReadOnlyList<PodcastConfig> podcasts)
     {
+        _dbContextFactoryScope?.Dispose();
+        _dbContextFactoryScope = new SqliteAppDbContextFactoryScope(podcasts);
+
         _ctx.Services.AddSingleton(_podcastCache);
         _ctx.Services.AddSingleton(_feedUrlBuilder);
         _ctx.Services.AddSingleton(_httpContextAccessor);
-        _ctx.Services.AddSingleton(Options.Create(options));
+        _ctx.Services.AddSingleton(_dbContextFactoryScope.DbContextFactory);
     }
 }

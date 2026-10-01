@@ -1,6 +1,6 @@
 using System.Globalization;
 using System.Xml.Serialization;
-using PodBridge.Logic.Domain;
+using PodBridge.Logic.Shared;
 
 namespace PodBridge.Api.Rss;
 

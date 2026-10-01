@@ -1,5 +1,5 @@
 using PodBridge.Logic.Config;
-using PodBridge.Logic.Domain;
+using PodBridge.Logic.Shared;
 
 namespace PodBridge.Logic.EpisodeSourcing;
 

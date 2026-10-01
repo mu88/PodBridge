@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Passed to `dotnet coverage collect -s CodeCoverage.settings.xml` (NOT to the inner `dotnet test`).
+  Excludes Roslyn source-generator output (e.g. ASP.NET Core's OpenAPI XML-comment generator) from
+  coverage: such generated types carry [System.CodeDom.Compiler.GeneratedCodeAttribute], but unlike
+  [ExcludeFromCodeCoverage] this attribute is NOT excluded by dotnet-coverage's built-in defaults.
+  [ExcludeFromCodeCoverage] itself already works without any custom settings (built-in default).
+-->
+<Configuration>
+  <CodeCoverage>
+    <Attributes>
+      <Exclude>
+        <Attribute>^System\.CodeDom\.Compiler\.GeneratedCodeAttribute$</Attribute>
+      </Exclude>
+    </Attributes>
+  </CodeCoverage>
+</Configuration>

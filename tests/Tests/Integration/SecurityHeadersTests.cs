@@ -42,5 +42,17 @@ public sealed class SecurityHeadersTests
         response.Headers.Should().ContainKey("Content-Security-Policy")
             .WhoseValue.Should().ContainSingle().Which.Should().Be("default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' https:");
     }
+
+    [Test]
+    public async Task ScalarEndpoint_UsesRelaxedContentSecurityPolicy()
+    {
+        // Act
+        using var response = await _client.GetAsync("/scalar/v1");
+
+        // Assert - Scalar's UI needs inline styles/scripts and a CDN font, unlike the strict app-wide default.
+        response.Headers.Should().ContainKey("Content-Security-Policy")
+            .WhoseValue.Should().ContainSingle().Which.Should()
+            .Be("default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' https: data:; connect-src 'self'");
+    }
 }
 

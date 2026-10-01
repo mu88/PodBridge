@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using NUnit.Framework;
 using PodBridge.Logic.Config;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit.Pages;
@@ -26,7 +27,7 @@ public sealed class LoginTests
         _httpContext = new DefaultHttpContext();
         _navigationManager = new RecordingNavigationManager();
         _ctx.Services.AddSingleton<NavigationManager>(_navigationManager);
-        _ctx.Services.AddSingleton(Options.Create(new PodBridgeOptionsBuilder().WithDefaults().Build()));
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().Build()));
         _ctx.RenderTree.Add<CascadingValue<HttpContext>>(parameters => parameters.Add(p => p.Value, _httpContext));
     }
 

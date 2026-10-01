@@ -1,14 +1,15 @@
 @page "/podcasts/{PodcastId}"
 @using System.Globalization
 @using Microsoft.AspNetCore.Http
-@using Microsoft.Extensions.Options
+@using Microsoft.EntityFrameworkCore
 @using PodBridge.Logic
 @using PodBridge.Logic.Caching
 @using PodBridge.Logic.Config
-@using PodBridge.Logic.Domain
+@using PodBridge.Logic.Shared
 @using PodBridge.Logic.Feeds
+@using PodBridge.Persistence
 @namespace PodBridge.Api.Components.Pages
-@inject IOptions<PodBridgeOptions> Options
+@inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IPodcastCache PodcastCache
 @inject IFeedUrlBuilder FeedUrlBuilder
 @inject IHttpContextAccessor HttpContextAccessor
@@ -85,16 +86,16 @@
                                         <img class="podcast-image" src="@episode.ImageUrl.OriginalString" alt="@episode.Title" loading="lazy" />
                                     }
                                 </td>
-                                <td>
+                                <td data-label="Episode">
                                     <div class="podcast-name">@episode.Title</div>
                                     @if (!string.IsNullOrWhiteSpace(episode.Description))
                                     {
                                         <div class="podcast-id">@TruncateDescription(episode.Description)</div>
                                     }
                                 </td>
-                                <td><span class="status-pill">@episode.PublishDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) (UTC)</span></td>
-                                <td><span class="status-pill">@FormatDuration(episode.DurationSeconds)</span></td>
-                                <td><a class="action-link" href="@episode.AudioUrl" target="_blank">Play</a></td>
+                                <td data-label="Published"><span class="status-pill">@episode.PublishDate.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture) (UTC)</span></td>
+                                <td data-label="Duration"><span class="status-pill">@FormatDuration(episode.DurationSeconds)</span></td>
+                                <td data-label="Listen"><a class="action-link" href="@episode.AudioUrl" target="_blank">Play</a></td>
                             </tr>
                         }
                     </tbody>
@@ -117,17 +118,18 @@
     // bUnit never invokes a <PageTitle> child fragment without additional HeadOutlet/JSInterop setup.
     internal string DisplayTitle => _cached?.Title ?? _podcastConfig!.PodcastId;
 
-    protected override void OnParametersSet()
+    protected override async Task OnParametersSetAsync()
     {
-        _podcastConfig = Options.Value.Podcasts
-            .FirstOrDefault(podcast => string.Equals(podcast.PodcastId, PodcastId, StringComparison.Ordinal));
+        await using var dbContext = await DbContextFactory.CreateDbContextAsync();
+        _podcastConfig = await dbContext.Podcasts
+            .FirstOrDefaultAsync(podcast => podcast.PodcastId == PodcastId);
         if (_podcastConfig is null)
         {
             NavigationManager.NotFound();
             return;
         }
 
-        _cached = PodcastCache.TryGetFull(_podcastConfig.PodcastId)?.Podcast;
+        _cached = PodcastCache.FindFull(_podcastConfig.PodcastId)?.Podcast;
         _episodes = _cached?.Episodes.OrderByDescending(episode => episode.PublishDate).ToList() ?? [];
 
         // HttpContextAccessor.HttpContext is guaranteed non-null: the app only ever uses static SSR (no

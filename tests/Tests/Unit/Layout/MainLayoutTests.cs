@@ -11,6 +11,7 @@ using NUnit.Framework;
 using PodBridge.Api.Components.Layout;
 using PodBridge.Logic.Config;
 using PodBridge.Logic.Versioning;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Unit.Layout;
@@ -24,7 +25,7 @@ public sealed class MainLayoutTests
     private BunitContext _ctx = null!;
     private IHostEnvironment _hostEnvironment = null!;
     private HttpContextAccessor _httpContextAccessor = null!;
-    private IOptions<PodBridgeOptions> _options = null!;
+    private IOptionsSnapshot<PodBridgeOptions> _options = null!;
 
     [SetUp]
     public void SetUp()
@@ -34,7 +35,7 @@ public sealed class MainLayoutTests
         _hostEnvironment = Substitute.For<IHostEnvironment>();
         _hostEnvironment.EnvironmentName.Returns("Development");
         _httpContextAccessor = new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
-        _options = Options.Create(new PodBridgeOptionsBuilder().WithDefaults().Build());
+        _options = new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().Build());
         _ctx.Services.AddSingleton(_hostEnvironment);
         _ctx.Services.AddSingleton<IHttpContextAccessor>(_httpContextAccessor);
         _ctx.Services.AddSingleton(_options);
@@ -88,7 +89,7 @@ public sealed class MainLayoutTests
     public void Render_WhenAuthenticatedAndAuthEnabled_ShowsLogoutForm()
     {
         // Arrange
-        _ctx.Services.AddSingleton(Options.Create(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
         _httpContextAccessor.HttpContext!.User = new ClaimsPrincipal(
             new ClaimsIdentity([new Claim(ClaimTypes.Name, "testuser")], "PodBridgeUiCookie"));
 
@@ -105,7 +106,7 @@ public sealed class MainLayoutTests
     public void Render_WhenAuthEnabledButNotAuthenticated_HidesLogoutForm()
     {
         // Arrange
-        _ctx.Services.AddSingleton(Options.Create(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
 
         // Act
         var testee = _ctx.Render<MainLayout>(parameters => parameters
@@ -113,5 +114,54 @@ public sealed class MainLayoutTests
 
         // Assert
         testee.FindAll("form.logout-form").Should().BeEmpty();
+    }
+
+    [Test]
+    public void Render_WhenAuthEnabledAndHttpContextIsNull_HidesLogoutForm()
+    {
+        // Arrange - isolates the "HttpContextAccessor.HttpContext?" null-conditional operand of the
+        // compound guard: no HttpContext at all (e.g. outside a request) must not throw.
+        _httpContextAccessor.HttpContext = null;
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
+
+        // Act
+        var testee = _ctx.Render<MainLayout>(parameters => parameters
+            .Add(layout => layout.Body, builder => builder.AddContent(0, "Example page content")));
+
+        // Assert
+        testee.FindAll("form.logout-form").Should().BeEmpty();
+    }
+
+    [Test]
+    public void Render_WhenAuthEnabledAndUserHasNoIdentity_HidesLogoutForm()
+    {
+        // Arrange - isolates the "User.Identity?" null-conditional operand: a ClaimsPrincipal with zero
+        // identities (User.Identity itself is null), distinct from an identity that merely isn't authenticated.
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
+        _httpContextAccessor.HttpContext!.User = new ClaimsPrincipal();
+
+        // Act
+        var testee = _ctx.Render<MainLayout>(parameters => parameters
+            .Add(layout => layout.Body, builder => builder.AddContent(0, "Example page content")));
+
+        // Assert
+        testee.FindAll("form.logout-form").Should().BeEmpty();
+    }
+
+    [Test]
+    public void Render_WhenAuthenticatedWithoutNameClaim_ShowsSignedInAsAnonymousWithQuestionMarkAvatar()
+    {
+        // Arrange - isolates the "?? string.Empty" fallback for the username and GetInitial's
+        // "IsNullOrEmpty(name)" branch: an authenticated identity without a Name claim.
+        _ctx.Services.AddSingleton<IOptionsSnapshot<PodBridgeOptions>>(new TestOptionsSnapshot<PodBridgeOptions>(new PodBridgeOptionsBuilder().WithDefaults().WithAuth(true).Build()));
+        _httpContextAccessor.HttpContext!.User = new ClaimsPrincipal(new ClaimsIdentity([], "PodBridgeUiCookie"));
+
+        // Act
+        var testee = _ctx.Render<MainLayout>(parameters => parameters
+            .Add(layout => layout.Body, builder => builder.AddContent(0, "Example page content")));
+
+        // Assert
+        testee.Find(".user-avatar").TextContent.Should().Be("?");
+        testee.Markup.Should().Contain("Signed in as ");
     }
 }

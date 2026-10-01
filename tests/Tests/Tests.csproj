@@ -12,7 +12,9 @@
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="FluentAssertions.Web.v8" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="mu88.Shared" />
@@ -20,12 +22,15 @@
     <PackageReference Include="NUnit" />
     <PackageReference Include="NUnit.Analyzers" PrivateAssets="All" />
     <PackageReference Include="NUnit3TestAdapter" PrivateAssets="All" />
+    <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="WireMock.Net.Testcontainers" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../../src/PodBridge.Logic/PodBridge.Logic.csproj" />
+    <ProjectReference Include="../../src/PodBridge.Persistence/PodBridge.Persistence.csproj" />
     <ProjectReference Include="../../src/PodBridge.Api/PodBridge.Api.csproj" />
   </ItemGroup>
 

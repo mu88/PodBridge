@@ -3,7 +3,9 @@ using System.Diagnostics.CodeAnalysis;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.OpenApi;
 using mu88.Shared.OpenTelemetry;
@@ -16,9 +18,11 @@ using PodBridge.Api.Components;
 using PodBridge.Api.Components.Pages;
 using PodBridge.Api.Endpoints;
 using PodBridge.Api.Observability;
+using PodBridge.Api.Refresh;
 using PodBridge.Logic;
 using PodBridge.Logic.Config;
 using PodBridge.Logic.Versioning;
+using PodBridge.Persistence;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -28,11 +32,11 @@ builder.Configuration
 
 // Allows the full PodBridge configuration section (including the Podcasts array, which is unwieldy to set
 // via individual environment variables) to be provided as a single file mounted into the container - e.g.
-// via a Hostim.dev Volume. Only attempted when PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH is explicitly set, so
-// there's no hardcoded default path that could point at a directory that doesn't exist (e.g. an unmounted
-// volume) - reloadOnChange: true on such a path makes .NET's FileSystemWatcher fall back to recursively
-// watching the nearest existing ancestor directory instead, which can take minutes on a large filesystem
-// and was blocking host startup (verified via a CI hang-dump/CLR stack trace showing
+// via a managed volume mount on the hosting platform. Only attempted when PODBRIDGE_EXTERNAL_CONFIG_FILE_PATH
+// is explicitly set, so there's no hardcoded default path that could point at a directory that doesn't exist
+// (e.g. an unmounted volume) - reloadOnChange: true on such a path makes .NET's FileSystemWatcher fall back to
+// recursively watching the nearest existing ancestor directory instead, which can take minutes on a large
+// filesystem and was blocking host startup (verified via a CI hang-dump/CLR stack trace showing
 // FileSystemWatcher.StartRaisingEvents -> AddDirectoryWatchUnlocked stuck enumerating directories). Read as
 // a raw environment variable (not through builder.Configuration) so tests can point it at a temp file
 // deterministically before the host is built.
@@ -56,10 +60,12 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(tracing => tracing.AddSource(Observability.Source.Name))
     .WithMetrics(metrics => metrics.AddMeter(Observability.MeterName));
 
-builder.Services.AddHealthChecks();
+builder.Services.AddHealthChecks()
+    .AddCheck<EpisodeRefreshHealthCheck>("episode-refresh");
 builder.Services.Configure<HealthCheckPublisherOptions>(options => options.Period = TimeSpan.FromMinutes(1));
 builder.Services.AddHttpContextAccessor();
 builder.Services.RegisterPodBridgeServices(builder.Configuration);
+builder.Services.RegisterPodBridgePersistenceServices(builder.Configuration);
 builder.Services.AddPodBridgeAuthentication();
 builder.Services.AddRateLimiter(rateLimiterOptions =>
 {
@@ -116,7 +122,7 @@ builder.Services.AddRateLimiter(rateLimiterOptions =>
 });
 
 builder.Services.AddAntiforgery(options => options.Cookie.Path = "/");
-builder.Services.AddRazorComponents();
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 builder.Services.AddOpenApi("v1", options =>
 {
     options.ShouldInclude = description =>
@@ -159,6 +165,23 @@ builder.Services.AddOpenApi("v1", options =>
 var app = builder.Build();
 
 var resolvedOptions = app.Services.GetRequiredService<IOptions<PodBridgeOptions>>().Value;
+
+// Applies pending EF Core migrations before the app starts serving traffic. Retried with backoff (not
+// a single attempt) because on a fresh deployment the Postgres container/managed instance may not accept
+// connections yet by the time this app's process starts; failures are logged and swallowed rather than
+// crashing the whole host, since the rest of PodBridge (already-cached feeds, Auth, etc.) still works
+// without a reachable database - PodcastDatabaseHealthCheck surfaces the resulting Degraded status instead.
+await MigrateDatabaseWithRetryAsync(app.Services);
+
+// TEMPORARY (remove after the one-time production deploy that runs this): migrates podcasts that used to
+// be configured via the "PodBridge:Podcasts" appsettings/env-var section (see git history of
+// PodBridgeOptions) into the new Postgres-backed AppDbContext.Podcasts table. Reads the legacy section
+// directly via IConfiguration (not through PodBridgeOptions, which no longer has a Podcasts property at
+// all) so this works purely from raw config without any dependency on the removed binding. Fail-safe/
+// idempotent: only inserts podcasts whose ShowId isn't already present, so re-running this on every
+// startup after the legacy section has been removed - or if it's re-run against an already-migrated
+// database - is always a safe no-op.
+await MigrateLegacyPodcastConfigAsync(app.Services, builder.Configuration);
 
 // Trust the immediate reverse proxy (e.g. a managed container platform's built-in front-end, or an
 // operator-provided nginx/Traefik/Caddy) so RemoteIpAddress - used by the rate limiter below - reflects
@@ -204,7 +227,8 @@ app.MapScalarApiReference("/scalar", options =>
 });
 
 protectedApiEndpoints.MapPodcastEndpoints();
-protectedUiEndpoints.MapRazorComponents<App>();
+protectedApiEndpoints.MapPodcastManagementEndpoints();
+protectedUiEndpoints.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 // Renders the Blazor NotFound page for requests that never match any endpoint (e.g. a mistyped URL).
 // The Blazor Router's own NotFound handling only covers NavigationManager.NotFound() calls from
@@ -212,6 +236,89 @@ protectedUiEndpoints.MapRazorComponents<App>();
 app.MapFallback(() => new RazorComponentResult<NotFoundPage>() { StatusCode = StatusCodes.Status404NotFound });
 
 await app.RunAsync();
+
+// Isolated as a local, non-async-Main-body function so the retry loop is testable in isolation and to
+// keep the top-level statements above focused on host/middleware wiring.
+static async Task MigrateDatabaseWithRetryAsync(IServiceProvider services)
+{
+    const int maxAttempts = 5;
+    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("PodBridge.Startup.Migrations");
+
+    for (var attempt = 1; attempt <= maxAttempts; attempt++)
+    {
+        try
+        {
+            await using var scope = services.CreateAsyncScope();
+            var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+            await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+
+            // Migrations are Npgsql-specific; applying them against another provider (e.g. integration tests'
+            // SQLite) always fails EF Core's PendingModelChangesWarning check, so skip - those tests seed their
+            // own schema via EnsureCreated instead (see SqliteAppDbContextFactoryScope).
+            if (!dbContext.Database.IsNpgsql())
+            {
+                return;
+            }
+
+            await dbContext.Database.MigrateAsync();
+            return;
+        }
+        catch (Exception exception) when (attempt < maxAttempts)
+        {
+            logger.LogWarning(
+                exception,
+                "Database migration attempt {Attempt}/{MaxAttempts} failed; retrying in {DelaySeconds}s",
+                attempt,
+                maxAttempts,
+                attempt);
+            await Task.Delay(TimeSpan.FromSeconds(attempt));
+        }
+        catch (Exception exception)
+        {
+            logger.LogError(exception, "Database migration failed after {MaxAttempts} attempts; continuing startup in a degraded state", maxAttempts);
+        }
+    }
+}
+
+// TEMPORARY: see call site comment above for context/removal plan.
+static async Task MigrateLegacyPodcastConfigAsync(IServiceProvider services, IConfiguration configuration)
+{
+    var legacyPodcasts = configuration.GetSection("PodBridge:Podcasts").Get<List<PodcastConfig>>() ?? [];
+    if (legacyPodcasts.Count == 0)
+    {
+        return;
+    }
+
+    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("PodBridge.Startup.LegacyPodcastMigration");
+
+    try
+    {
+        await using var scope = services.CreateAsyncScope();
+        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
+        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
+
+        var existingShowIds = await dbContext.Podcasts.Select(podcast => podcast.ShowId).ToListAsync();
+        var podcastsToMigrate = legacyPodcasts.Where(podcast => !existingShowIds.Contains(podcast.ShowId, StringComparer.Ordinal)).ToList();
+        if (podcastsToMigrate.Count == 0)
+        {
+            return;
+        }
+
+        dbContext.Podcasts.AddRange(podcastsToMigrate);
+        await dbContext.SaveChangesAsync();
+
+        // .Count on a List<T> is a trivial O(1) read, not an expensive log argument.
+#pragma warning disable CA1873
+        logger.LogInformation("Migrated {Count} legacy podcast(s) from configuration into the database", podcastsToMigrate.Count);
+#pragma warning restore CA1873
+    }
+    catch (Exception exception)
+    {
+        // Non-fatal: the legacy section stays in config until the operator removes it, so a failed
+        // attempt here (e.g. a still-unreachable database) is simply retried on the next app restart.
+        logger.LogError(exception, "Failed to migrate legacy podcast configuration into the database");
+    }
+}
 
 [ExcludeFromCodeCoverage(Justification = "Composition root; excluded from Sonar coverage metric too (see SonarQube.Analysis.xml).")]
 [SuppressMessage("StyleCop.CSharp.MaintainabilityRules", "S1118", Justification = "Necessary for code coverage")]

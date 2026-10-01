@@ -6,6 +6,9 @@ public sealed class PodBridgeOptions : IValidatableObject
 {
     public const string SectionName = "PodBridge";
 
+    // Unlike the other properties here, this one is only read once, at worker startup, to construct a
+    // PeriodicTimer with a fixed period - changing it in a reloaded config file has no effect until the
+    // process is restarted.
     [Range(1, int.MaxValue)]
     public int RefreshIntervalMinutes { get; init; } = 360;
 
@@ -23,32 +26,12 @@ public sealed class PodBridgeOptions : IValidatableObject
 
     public AuthOptions Auth { get; init; } = new();
 
-    public IReadOnlyList<PodcastConfig> Podcasts { get; init; } = [];
-
+    // Podcasts themselves are runtime-mutable, user-editable data, not deployment/infra configuration, so
+    // they live in a dedicated Postgres-backed AppDbContext/DbSet<PodcastConfig> instead (see
+    // PodBridge.Persistence.AppDbContext), including their uniqueness/non-empty invariants (see
+    // AppDbContext.OnModelCreating).
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
-        var podcasts = Podcasts.ToList();
-
-        if (HasDuplicatePodcastIds(podcasts))
-        {
-            yield return new ValidationResult("PodcastIds must be unique");
-        }
-
-        if (HasEmptyPodcastId(podcasts))
-        {
-            yield return new ValidationResult("Every podcast must have a non-empty PodcastId");
-        }
-
-        if (HasEmptyShowId(podcasts))
-        {
-            yield return new ValidationResult("Every podcast must have a non-empty ShowId");
-        }
-
-        if (HasDuplicateShowIds(podcasts))
-        {
-            yield return new ValidationResult("Podcast ShowIds must be unique");
-        }
-
         if (HasInvalidAuthConfiguration())
         {
             yield return new ValidationResult("Auth.UsernameHash and Auth.PasswordHash must be set when Auth.Enabled is true");
@@ -58,33 +41,6 @@ public sealed class PodBridgeOptions : IValidatableObject
         {
             yield return new ValidationResult("GraphQlEndpoint must be an absolute URI");
         }
-
-        if (podcasts.Count > 0 && GraphQlEndpoint is null)
-        {
-            yield return new ValidationResult("GraphQlEndpoint must be configured when podcasts are enabled");
-        }
-    }
-
-    private static bool HasDuplicatePodcastIds(List<PodcastConfig> podcasts)
-    {
-        var seenIds = new HashSet<string>(podcasts.Count, StringComparer.Ordinal);
-        return podcasts.Exists(podcast => !seenIds.Add(podcast.PodcastId));
-    }
-
-    private static bool HasEmptyPodcastId(IEnumerable<PodcastConfig> podcasts)
-    {
-        return podcasts.Any(podcast => string.IsNullOrWhiteSpace(podcast.PodcastId));
-    }
-
-    private static bool HasEmptyShowId(IEnumerable<PodcastConfig> podcasts)
-    {
-        return podcasts.Any(podcast => string.IsNullOrWhiteSpace(podcast.ShowId));
-    }
-
-    private static bool HasDuplicateShowIds(List<PodcastConfig> podcasts)
-    {
-        var seenIds = new HashSet<string>(podcasts.Count, StringComparer.Ordinal);
-        return podcasts.Exists(podcast => !seenIds.Add(podcast.ShowId));
     }
 
     private bool HasInvalidAuthConfiguration()

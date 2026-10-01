@@ -87,6 +87,7 @@ public class RssFeedTests
 
         // Assert
         feed.Channel.Link.Should().BeEmpty();
+        feed.Channel.Image!.Link.Should().BeEmpty();
     }
 
     [Test]
@@ -208,6 +209,62 @@ public class RssFeedTests
     }
 
     [Test]
+    public void Serialize_NullFeed_ThrowsArgumentNullException()
+    {
+        // Act
+        var act = () => RssFeedSerializer.Serialize(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Test]
+    public void Serialize_Output_UsesTwoSpaceIndentationAndUnixLineEndings()
+    {
+        // Arrange
+        var podcast = new PodcastBuilder().WithDefaults().Build();
+        var feed = RssFeed.MapFrom(podcast);
+
+        // Act
+        var xml = RssFeedSerializer.Serialize(feed);
+
+        // Assert - only present with Indent=true, IndentChars="  " and NewLineChars="\n" all in effect together.
+        xml.Should().NotContain("\r\n");
+        xml.Should().Contain("\n  <channel>");
+        xml.Should().Contain("\n    <title>");
+    }
+
+    [Test]
+    public void Serialize_Output_EndsWithSingleTrailingNewline()
+    {
+        // Arrange
+        var podcast = new PodcastBuilder().WithDefaults().Build();
+        var feed = RssFeed.MapFrom(podcast);
+
+        // Act
+        var xml = RssFeedSerializer.Serialize(feed);
+
+        // Assert
+        xml.Should().EndWith("</rss>\n");
+        xml.Should().NotEndWith("</rss>\n\n");
+    }
+
+    [Test]
+    public void Serialize_Output_UsesItunesNamespacePrefix()
+    {
+        // Arrange
+        var podcast = new PodcastBuilder().WithDefaults().Build();
+        var feed = RssFeed.MapFrom(podcast);
+
+        // Act
+        var xml = RssFeedSerializer.Serialize(feed);
+
+        // Assert
+        xml.Should().Contain("<itunes:author>");
+        xml.Should().Contain("xmlns:itunes=\"" + RssXmlNamespaces.Itunes + "\"");
+    }
+
+    [Test]
     public void Serialize_WithSelfLinkUrl_InjectsAtomSelfLink()
     {
         // Arrange
@@ -242,6 +299,55 @@ public class RssFeedTests
         var atomNamespace = XNamespace.Get(RssXmlNamespaces.Atom);
         var atomLink = doc.Descendants(atomNamespace + "link").FirstOrDefault();
         atomLink.Should().BeNull();
+    }
+
+    [Test]
+    public void Serialize_DefaultConstructedDtos_EmitsDeclaredDefaultValues()
+    {
+        // Arrange - every RSS DTO is constructed via its parameterless constructor, bypassing RssFeed.MapFrom
+        // (which always overwrites every field), so the compile-time default values below are actually observed.
+        var feed = new RssFeed
+        {
+            Channel = new RssChannel
+            {
+                Image = new RssImage(),
+                ItunesImage = new RssItunesImage(),
+                AtomSelfLink = new AtomLink(),
+                Items = [new RssItem { Enclosure = new RssEnclosure(), ItunesImage = new RssItunesImage() }],
+            },
+        };
+
+        // Act
+        var xml = RssFeedSerializer.Serialize(feed);
+        var doc = XDocument.Parse(xml);
+        var itunesNamespace = XNamespace.Get(RssXmlNamespaces.Itunes);
+        var atomNamespace = XNamespace.Get(RssXmlNamespaces.Atom);
+
+        // Assert
+        var channel = doc.Root!.Element("channel")!;
+        channel.Element("title")!.Value.Should().BeEmpty();
+        channel.Element("link")!.Value.Should().BeEmpty();
+        channel.Element("description")!.Value.Should().BeEmpty();
+        channel.Element(itunesNamespace + "author")!.Value.Should().BeEmpty();
+        channel.Element(itunesNamespace + "type")!.Value.Should().Be("episodic");
+        channel.Element(itunesNamespace + "explicit")!.Value.Should().Be("no");
+
+        var image = channel.Element("image")!;
+        image.Element("url")!.Value.Should().BeEmpty();
+        image.Element("title")!.Value.Should().BeEmpty();
+        image.Element("link")!.Value.Should().BeEmpty();
+
+        channel.Element(itunesNamespace + "image")!.Attribute("href")!.Value.Should().BeEmpty();
+        channel.Element(atomNamespace + "link")!.Attribute("href")!.Value.Should().BeEmpty();
+
+        var item = channel.Element("item")!;
+        item.Element("title")!.Value.Should().BeEmpty();
+        item.Element("guid")!.Value.Should().BeEmpty();
+        item.Element("pubDate")!.Value.Should().BeEmpty();
+
+        var enclosure = item.Element("enclosure")!;
+        enclosure.Attribute("url")!.Value.Should().BeEmpty();
+        enclosure.Attribute("type")!.Value.Should().Be("audio/mpeg");
     }
 
     [Test]
@@ -295,6 +401,69 @@ public class RssFeedTests
         var enclosure = doc.Descendants("enclosure").FirstOrDefault();
         enclosure.Should().NotBeNull();
         enclosure!.Attribute("type")!.Value.Should().Be("audio/ogg");
+    }
+
+    [Test]
+    public void MapFrom_NullPodcast_ThrowsArgumentNullException()
+    {
+        // Act
+        var act = () => RssFeed.MapFrom(null!);
+
+        // Assert
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Test]
+    public void Serialize_FullyPopulatedFeed_MapsEveryElementAndAttributeToItsExpectedXmlName()
+    {
+        // Arrange - builder defaults already give every field a value distinct from its siblings, so a
+        // mutated element/attribute name or a swapped/blanked value shows up as a wrong or missing node below.
+        var episode = new EpisodeBuilder().WithDefaults().Build();
+        var podcast = new PodcastBuilder().WithDefaults().WithEpisodes(episode).Build();
+        var feed = RssFeed.MapFrom(podcast);
+
+        // Act
+        var xml = RssFeedSerializer.Serialize(feed, "https://fixture.test/feeds/full");
+        var doc = XDocument.Parse(xml);
+        var itunesNamespace = XNamespace.Get(RssXmlNamespaces.Itunes);
+        var atomNamespace = XNamespace.Get(RssXmlNamespaces.Atom);
+
+        // Assert
+        var channel = doc.Root!.Element("channel")!;
+        channel.Element("title")!.Value.Should().Be(podcast.Title);
+        channel.Element("link")!.Value.Should().Be(podcast.Link!.OriginalString);
+        channel.Element("description")!.Value.Should().Be(podcast.Description);
+        channel.Element("language")!.Value.Should().Be(podcast.Language);
+
+        var channelImage = channel.Element("image")!;
+        channelImage.Element("url")!.Value.Should().Be(podcast.ImageUrl!.OriginalString);
+        channelImage.Element("title")!.Value.Should().Be(podcast.Title);
+        channelImage.Element("link")!.Value.Should().Be(podcast.Link.OriginalString);
+
+        channel.Element(itunesNamespace + "image")!.Attribute("href")!.Value.Should().Be(podcast.ImageUrl.OriginalString);
+        channel.Element(itunesNamespace + "author")!.Value.Should().Be(podcast.Author);
+        channel.Element(itunesNamespace + "type")!.Value.Should().Be("episodic");
+        channel.Element(itunesNamespace + "explicit")!.Value.Should().Be("no");
+
+        var atomLink = channel.Element(atomNamespace + "link")!;
+        atomLink.Attribute("rel")!.Value.Should().Be("self");
+        atomLink.Attribute("href")!.Value.Should().Be("https://fixture.test/feeds/full");
+        atomLink.Attribute("type")!.Value.Should().Be("application/rss+xml");
+
+        var item = channel.Element("item")!;
+        item.Element("title")!.Value.Should().Be(episode.Title);
+        item.Element("guid")!.Value.Should().Be(episode.Guid);
+        item.Element("pubDate")!.Value.Should().EndWith("GMT");
+        item.Element("description")!.Value.Should().Be(episode.Description);
+        item.Element("link")!.Value.Should().Be(episode.Link!.OriginalString);
+
+        var enclosure = item.Element("enclosure")!;
+        enclosure.Attribute("url")!.Value.Should().Be(episode.AudioUrl.OriginalString);
+        enclosure.Attribute("type")!.Value.Should().Be(episode.AudioMimeType);
+
+        item.Element(itunesNamespace + "image")!.Attribute("href")!.Value.Should().Be(episode.ImageUrl!.OriginalString);
+        item.Element(itunesNamespace + "duration")!.Value.Should().Be("1800");
+        item.Element(itunesNamespace + "episode")!.Value.Should().Be(episode.EpisodeNumber);
     }
 
     [Test]

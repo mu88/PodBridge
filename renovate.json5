@@ -2,5 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>mu88/common//renovate/default.json5"
+  ],
+  "packageRules": [
+    {
+      // global.json is intentionally pinned below the latest SDK band so Stryker mutation testing works;
+      // see https://github.com/stryker-mutator/stryker-net/issues/3813 (Stryker's Roslyn version can't
+      // load newer Razor generators). Remove this rule once Stryker ships a compatible Roslyn version.
+      "matchPackageNames": ["dotnet-sdk"],
+      "enabled": false
+    }
   ]
 }

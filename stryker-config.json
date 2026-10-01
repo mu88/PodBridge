@@ -1,6 +1,6 @@
 {
   "stryker-config": {
-    "project": "src/PodBridge.Logic/PodBridge.Logic.csproj",
+    "solution": "PodBridge.slnx",
     "test-projects": [
       "tests/Tests/Tests.csproj"
     ],
@@ -14,7 +14,7 @@
     },
     "mutate": [
       "!**/Program.cs",
-      "!**/GraphQlEpisodeSource.cs"
+      "!**/Migrations/**/*.cs"
     ],
     "ignore-methods": [
       "logger.*",

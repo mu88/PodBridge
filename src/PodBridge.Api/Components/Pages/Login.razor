@@ -7,7 +7,7 @@
 @using Microsoft.Extensions.Options
 @using PodBridge.Api.Authentication
 @using PodBridge.Logic.Config
-@inject IOptions<PodBridgeOptions> Options
+@inject IOptionsSnapshot<PodBridgeOptions> Options
 @inject NavigationManager NavigationManager
 
 <PageTitle>PodBridge - Sign In</PageTitle>
@@ -30,7 +30,7 @@
 
             <div class="form-field">
                 <label for="login-username">Username</label>
-                <InputText id="login-username" @bind-Value="Input!.Username" autocomplete="username" />
+                <InputText id="login-username" @bind-Value="Input!.Username" autocomplete="username" autofocus />
             </div>
 
             <div class="form-field">

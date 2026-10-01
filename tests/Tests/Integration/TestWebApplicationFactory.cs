@@ -1,25 +1,33 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 using NSubstitute;
 using PodBridge.Logic;
 using PodBridge.Logic.Caching;
 using PodBridge.Logic.Config;
-using PodBridge.Logic.Domain;
 using PodBridge.Logic.EpisodeSourcing;
+using PodBridge.Logic.PodcastManagement;
 using PodBridge.Logic.Security;
+using PodBridge.Logic.Shared;
+using PodBridge.Persistence;
+using Tests.TestSupport;
 using Tests.TestSupport.Builders;
 
 namespace Tests.Integration;
 
 public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 {
+    private readonly SqliteAppDbContextFactoryScope _dbContextScope;
     private readonly Podcast? _testPodcast;
     private readonly bool _prepopulateCache;
     private readonly IReadOnlyList<PodcastConfig> _podcasts;
+    private readonly IPodcastDirectory? _podcastDirectory;
+    private readonly IPodcastManagementService? _podcastManagementService;
     private readonly int? _rateLimitingPermitLimit;
     private readonly int? _rateLimitingWindowMinutes;
     private readonly bool _authEnabled;
@@ -32,6 +40,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         Podcast? testPodcast = null,
         bool prepopulateCache = true,
         IReadOnlyList<PodcastConfig>? podcasts = null,
+        IPodcastDirectory? podcastDirectory = null,
+        IPodcastManagementService? podcastManagementService = null,
         int? rateLimitingPermitLimit = null,
         int? rateLimitingWindowMinutes = null,
         bool authEnabled = false,
@@ -43,6 +53,8 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         _testPodcast = testPodcast;
         _prepopulateCache = prepopulateCache;
         _podcasts = podcasts ?? [new PodcastConfigBuilder().WithDefaults().WithPodcastId("test-show").WithShowId("test-show-id").Build()];
+        _podcastDirectory = podcastDirectory;
+        _podcastManagementService = podcastManagementService;
         _rateLimitingPermitLimit = rateLimitingPermitLimit;
         _rateLimitingWindowMinutes = rateLimitingWindowMinutes;
         _authEnabled = authEnabled;
@@ -50,6 +62,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         _authPassword = authPassword;
         _authRateLimitingPermitLimit = authRateLimitingPermitLimit;
         _authRateLimitingWindowMinutes = authRateLimitingWindowMinutes;
+        _dbContextScope = new SqliteAppDbContextFactoryScope(_podcasts);
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -59,28 +72,11 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
 
         builder.ConfigureServices(services =>
         {
-            var hostedServiceDescriptors = services.Where(descriptor => descriptor.ServiceType == typeof(IHostedService)).ToList();
-            foreach (var descriptor in hostedServiceDescriptors)
-            {
-                services.Remove(descriptor);
-            }
-
-            var episodeSourceDescriptors = services.Where(descriptor =>
-                descriptor.ServiceType == typeof(IEpisodeSource) ||
-                descriptor.ServiceType.Name.Contains("GraphQlEpisodeSource", StringComparison.Ordinal)).ToList();
-            foreach (var descriptor in episodeSourceDescriptors)
-            {
-                services.Remove(descriptor);
-            }
-
-            var mockEpisodeSource = Substitute.For<IEpisodeSource>();
-            if (_testPodcast != null)
-            {
-                mockEpisodeSource.FetchEpisodesAsync(Arg.Any<PodcastConfig>(), Arg.Any<CancellationToken>())
-                    .Returns(_testPodcast);
-            }
-
-            services.AddSingleton<IEpisodeSource>(_ => mockEpisodeSource);
+            RemoveHostedServices(services);
+            ReplaceEpisodeSource(services);
+            ReplaceAppDbContextFactory(services);
+            ReplacePodcastDirectory(services);
+            ReplacePodcastManagementService(services);
         });
 
         if (_prepopulateCache && _testPodcast != null)
@@ -99,6 +95,70 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
                 });
             });
         }
+    }
+
+    protected override void Dispose(bool disposing)
+    {
+        base.Dispose(disposing);
+        if (disposing)
+        {
+            _dbContextScope.Dispose();
+        }
+    }
+
+    private static void RemoveHostedServices(IServiceCollection services)
+    {
+        var hostedServiceDescriptors = services.Where(descriptor => descriptor.ServiceType == typeof(IHostedService)).ToList();
+        foreach (var descriptor in hostedServiceDescriptors)
+        {
+            services.Remove(descriptor);
+        }
+    }
+
+    private void ReplaceEpisodeSource(IServiceCollection services)
+    {
+        services.RemoveAll<IEpisodeSource>();
+
+        var mockEpisodeSource = Substitute.For<IEpisodeSource>();
+        if (_testPodcast is not null)
+        {
+            mockEpisodeSource.FetchEpisodesAsync(Arg.Any<PodcastConfig>(), Arg.Any<CancellationToken>())
+                .Returns(_testPodcast);
+        }
+
+        services.AddSingleton<IEpisodeSource>(_ => mockEpisodeSource);
+    }
+
+    private void ReplacePodcastDirectory(IServiceCollection services)
+    {
+        if (_podcastDirectory is null)
+        {
+            return;
+        }
+
+        services.RemoveAll<IPodcastDirectory>();
+        services.AddSingleton(_podcastDirectory);
+    }
+
+    private void ReplacePodcastManagementService(IServiceCollection services)
+    {
+        if (_podcastManagementService is null)
+        {
+            return;
+        }
+
+        services.RemoveAll<IPodcastManagementService>();
+        services.AddSingleton(_podcastManagementService);
+    }
+
+    private void ReplaceAppDbContextFactory(IServiceCollection services)
+    {
+        services.RemoveAll<AppDbContext>();
+        services.RemoveAll<DbContextOptions>();
+        services.RemoveAll<DbContextOptions<AppDbContext>>();
+        services.RemoveAll<IDbContextFactory<AppDbContext>>();
+
+        services.AddSingleton(_dbContextScope.DbContextFactory);
     }
 
     private Dictionary<string, string?> BuildConfigurationSettings()
@@ -148,18 +208,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
             }
         }
 
-        AddPodcastSettings(settings);
         return settings;
-    }
-
-    private void AddPodcastSettings(Dictionary<string, string?> settings)
-    {
-        for (var i = 0; i < _podcasts.Count; i++)
-        {
-            var podcast = _podcasts[i];
-            settings.Add($"PodBridge:Podcasts:{i.ToString(CultureInfo.InvariantCulture)}:PodcastId", podcast.PodcastId);
-            settings.Add($"PodBridge:Podcasts:{i.ToString(CultureInfo.InvariantCulture)}:ShowId", podcast.ShowId);
-        }
     }
 
     private sealed class NoOpHostedService : IHostedService
