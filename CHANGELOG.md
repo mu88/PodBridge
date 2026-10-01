@@ -2,6 +2,29 @@
 
 All notable changes to this project will be documented in this file. See [versionize](https://github.com/versionize/versionize) for commit guidelines.
 
+<a name="1.1.0"></a>
+## [1.1.0](https://www.github.com/mu88/PodBridge/releases/tag/1.1.0) (2026-10-01)
+
+### ✨ Features
+
+* **podcasts:** add self-service podcast search/add and clean up architecture ([29adcf8](https://www.github.com/mu88/PodBridge/commit/29adcf841d8530c7ef4ecd95c12b7da4d45363f1))
+
+### 🔧 Chores
+
+* **deps:** update all .net ([a38115d](https://www.github.com/mu88/PodBridge/commit/a38115d58ff51e840fd51ff5853ac1cf012f68c2))
+* **deps:** update all .net ([17d106e](https://www.github.com/mu88/PodBridge/commit/17d106ef05c568f7e28744b0902e2f986cc30586))
+* **deps:** update all dependencies ([6966898](https://www.github.com/mu88/PodBridge/commit/69668980590e79fffa63755b2f71c10198f6dc72))
+* **deps:** update all dependencies ([465ac1d](https://www.github.com/mu88/PodBridge/commit/465ac1de224ecb796c056802a899e657f1c1c0da))
+* **deps:** update all dependencies ([fe431f4](https://www.github.com/mu88/PodBridge/commit/fe431f49ae12cbc1b1a26ebe95b9d048063a5e17))
+* **deps:** update all dependencies ([03fe171](https://www.github.com/mu88/PodBridge/commit/03fe1715186f8adf60923488d35d5a2bfc20f135))
+* **deps:** update dependency scalar.aspnetcore to 2.17.3 ([a8a85a3](https://www.github.com/mu88/PodBridge/commit/a8a85a39bf9e1cb424b3095f5c8f0c6df8f1e4e8))
+* **deps:** update mu88/common digest to 03ce929 ([5ad959e](https://www.github.com/mu88/PodBridge/commit/5ad959eef2f8ace015c13814658b0d03e8dd6ff1))
+* **deps:** update mu88/common digest to 0d04e69 ([2865148](https://www.github.com/mu88/PodBridge/commit/2865148b52532fed0788a682bcb993ba949a4c8f))
+* **deps:** update mu88/common digest to 349db23 ([c003290](https://www.github.com/mu88/PodBridge/commit/c003290618f371f84b0a71d9531df37a5bae5154))
+* **deps:** update mu88/common digest to 5d4855b ([4e9a58e](https://www.github.com/mu88/PodBridge/commit/4e9a58edace7afc8d1460d4c3bcceecf11f4cd71))
+* **deps:** update mu88/common digest to 88212c6 ([6e7cd80](https://www.github.com/mu88/PodBridge/commit/6e7cd801bda7271e745226d332ae2c5a8a3c4b39))
+* **deps:** update mu88/common digest to fedc5a3 ([f8bb934](https://www.github.com/mu88/PodBridge/commit/f8bb934694f69880bcd2f08cff45985e79a97a67))
+
 <a name="1.0.1"></a>
 ## [1.0.1](https://www.github.com/mu88/PodBridge/releases/tag/1.0.1) (2026-09-01)
 
