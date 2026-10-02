@@ -9,8 +9,21 @@ public sealed class PodBridgeOptions : IValidatableObject
     // Unlike the other properties here, this one is only read once, at worker startup, to construct a
     // PeriodicTimer with a fixed period - changing it in a reloaded config file has no effect until the
     // process is restarted.
+    //
+    // Superseded by RefreshInterval (sub-minute granularity); kept only so a rolling deployment can run
+    // old and new config simultaneously. Remove this property (and its appsettings.json/README entries)
+    // in a later, separate deployment once all environments have migrated to RefreshInterval.
     [Range(1, int.MaxValue)]
     public int RefreshIntervalMinutes { get; init; } = 360;
+
+    // TimeSpan-based successor to RefreshIntervalMinutes, allowing sub-minute intervals (e.g. for fast
+    // System/E2E tests). Takes precedence over RefreshIntervalMinutes when set - see EffectiveRefreshInterval.
+    public TimeSpan? RefreshInterval { get; init; }
+
+    // Single source of truth for the worker's actual refresh period, resolving the RefreshInterval vs.
+    // RefreshIntervalMinutes precedence in one place instead of duplicating the fallback wherever the
+    // period is needed.
+    public TimeSpan EffectiveRefreshInterval => RefreshInterval ?? TimeSpan.FromMinutes(RefreshIntervalMinutes);
 
     // Defaults to true so existing deployments keep refreshing without any config change; tests disable it
     // (see TestWebApplicationFactory) so per-test hosts don't run an unnecessary background loop.
@@ -40,6 +53,11 @@ public sealed class PodBridgeOptions : IValidatableObject
         if (GraphQlEndpoint is not null && !GraphQlEndpoint.IsAbsoluteUri)
         {
             yield return new ValidationResult("GraphQlEndpoint must be an absolute URI");
+        }
+
+        if (RefreshInterval <= TimeSpan.Zero)
+        {
+            yield return new ValidationResult("RefreshInterval must be greater than zero");
         }
     }
 

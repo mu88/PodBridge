@@ -1,0 +1,82 @@
+{
+  "Request": {
+    "Methods": ["POST"],
+    "Path": "/graphql",
+    "Body": {
+      "MatchOperator": "And",
+      "Matchers": [
+        { "Name": "WildcardMatcher", "Pattern": "*programSet*" },
+        { "Name": "WildcardMatcher", "Pattern": "*\"showId\":\"show-beta-id\"*" }
+      ]
+    }
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json" },
+    "BodyAsJson": {
+      "data": {
+        "programSet": {
+          "title": "Beta Show",
+          "synopsis": "The second manual-test fixture show",
+          "description": "Extended description for Beta Show",
+          "sharingUrl": "https://fixture.test/show/show-beta",
+          "image": { "url": "https://fixture.test/images/{width}/beta.jpg" },
+          "publicationService": { "title": "Test Platform" },
+          "items": {
+            "pageInfo": { "hasNextPage": false, "endCursor": null },
+            "nodes": [
+              {
+                "id": "beta-ep-1",
+                "title": "Beta Episode 1",
+                "publishDate": "2024-02-01T10:00:00Z",
+                "synopsis": "Beta episode 1 synopsis",
+                "summary": "Beta episode 1 summary",
+                "description": "Beta episode 1 description",
+                "showNotes": "Beta episode 1 show notes",
+                "duration": 2100,
+                "episodeNumber": 1,
+                "sharingUrl": "https://fixture.test/episode/beta-ep-1",
+                "image": { "url": "https://fixture.test/images/{width}/beta-ep-1.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/beta-ep-1.mp3", "downloadUrl": "https://fixture.test/download/beta-ep-1.mp3", "mimeType": "audio/mpeg" }
+                ]
+              },
+              {
+                "id": "beta-ep-2",
+                "title": "Beta Episode 2",
+                "publishDate": "2024-02-08T10:00:00Z",
+                "synopsis": "Beta episode 2 synopsis",
+                "summary": "Beta episode 2 summary",
+                "description": "Beta episode 2 description",
+                "showNotes": "Beta episode 2 show notes",
+                "duration": 2200,
+                "episodeNumber": 2,
+                "sharingUrl": "https://fixture.test/episode/beta-ep-2",
+                "image": { "url": "https://fixture.test/images/{width}/beta-ep-2.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/beta-ep-2.mp3", "downloadUrl": "https://fixture.test/download/beta-ep-2.mp3", "mimeType": "audio/mpeg" }
+                ]
+              },
+              {
+                "id": "beta-ep-3",
+                "title": "Beta Episode 3",
+                "publishDate": "2024-02-15T10:00:00Z",
+                "synopsis": "Beta episode 3 synopsis",
+                "summary": "Beta episode 3 summary",
+                "description": "Beta episode 3 description",
+                "showNotes": "Beta episode 3 show notes",
+                "duration": 2300,
+                "episodeNumber": 3,
+                "sharingUrl": "https://fixture.test/episode/beta-ep-3",
+                "image": { "url": "https://fixture.test/images/{width}/beta-ep-3.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/beta-ep-3.mp3", "downloadUrl": "https://fixture.test/download/beta-ep-3.mp3", "mimeType": "audio/mpeg" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

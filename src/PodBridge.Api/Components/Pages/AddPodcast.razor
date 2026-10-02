@@ -31,9 +31,9 @@
     <EditForm Model="_searchInput" FormName="search-podcast" OnSubmit="HandleSearchAsync">
         <div class="form-field">
             <label for="search-query">Show title</label>
-            <InputText id="search-query" @bind-Value="_searchInput.Query" autofocus />
+            <InputText id="search-query" data-testid="search-query-input" @bind-Value="_searchInput.Query" autofocus />
         </div>
-        <button type="submit" class="action-link action-link--accent">Search</button>
+        <button type="submit" data-testid="search-submit-button" class="action-link action-link--accent">Search</button>
     </EditForm>
 </section>
 
@@ -66,7 +66,7 @@ else if (_searchResults is { Count: > 0 })
                             <td data-label="Episodes"><span class="status-pill">@result.EpisodeCount</span></td>
                             <td data-label="">
                                 <EditForm Model="_addInput" FormName="@($"add-{result.ShowId}")" OnSubmit="@(() => HandleAddAsync(result.ShowId, result.Title))">
-                                    <button type="submit" class="action-link">Add</button>
+                                    <button type="submit" class="action-link" data-testid="@($"add-podcast-button-{result.ShowId}")">Add</button>
                                 </EditForm>
                             </td>
                         </tr>

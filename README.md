@@ -67,7 +67,8 @@ Configure the GraphQL endpoint in `appsettings.json` under the `PodBridge` secti
 ```
 
 - `ConnectionStrings.PodBridgeDb`: Postgres connection string for the Podcasts list, used when the indirection below isn't configured (e.g. local development). Pending EF Core migrations are applied automatically at startup (retried with backoff); if the database stays unreachable, PodBridge still starts and serves already-cached feeds, but `/healthz` reports `Degraded` until the database becomes reachable again.
-- `RefreshIntervalMinutes`: Background refresh interval for episodes and pre-generated feeds.
+- `RefreshIntervalMinutes`: Background refresh interval for episodes and pre-generated feeds. Deprecated in favor of `RefreshInterval` below; kept temporarily for rolling-deployment compatibility and will be removed in a later deployment.
+- `RefreshInterval`: `TimeSpan`-based background refresh interval (e.g. `"00:10:00"`), superseding `RefreshIntervalMinutes` with sub-minute granularity. Takes precedence over `RefreshIntervalMinutes` when set.
 - `RateLimitingPermitLimit`: Maximum number of requests per remote IP and protected endpoint within the configured window. Default: `15`.
 - `RateLimitingWindowMinutes`: Fixed-window length for rate limiting on `/api/podcasts/{podcastId}` and `/api/podcasts`. Default: `5`.
 - `GraphQlEndpoint`: Absolute URI of the GraphQL endpoint used for show search, previews, and episode lookups.

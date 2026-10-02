@@ -3,11 +3,13 @@
   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
   xmlns:xsd="http://www.w3.org/2001/XMLSchema"
   xmlns="http://www.sonarsource.com/msbuild/integration/2015/1">
-  <!-- Exclude static frontend assets and framework composition/bootstrap files from coverage —
-       wwwroot assets are not covered by .NET test tooling, and Program.cs/Routes.razor are pure
-       ASP.NET Core/Blazor wiring with no testable logic of their own (Program.cs is excluded from
-       mutation testing too, see stryker-config.json). -->
-  <Property Name="sonar.coverage.exclusions">**/wwwroot/**,**/Program.cs,**/Routes.razor</Property>
+  <!-- Exclude static frontend assets, framework composition/bootstrap files, and standalone
+       PowerShell scripts from coverage — wwwroot assets are not covered by .NET test tooling,
+       Program.cs/Routes.razor are pure ASP.NET Core/Blazor wiring with no testable logic of
+       their own (Program.cs is excluded from mutation testing too, see stryker-config.json),
+       and *.ps1 scripts (e.g. Scripts/New-CredentialHash.ps1) are not covered by .NET test
+       tooling either. -->
+  <Property Name="sonar.coverage.exclusions">**/wwwroot/**,**/Program.cs,**/Routes.razor,**/*.ps1</Property>
   <!-- S8970 is a false positive on these two Razor files: Sonar's analysis doesn't see the real
        nullable context of Razor-generated code, so it flags the null-forgiving operators as
        unnecessary even though removing them causes real CS8602 compiler errors. -->

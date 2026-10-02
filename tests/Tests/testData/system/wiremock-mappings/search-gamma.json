@@ -1,0 +1,32 @@
+{
+  "Request": {
+    "Methods": ["POST"],
+    "Path": "/graphql",
+    "Body": {
+      "MatchOperator": "And",
+      "Matchers": [
+        { "Name": "WildcardMatcher", "Pattern": "*search(query*" },
+        { "Name": "WildcardMatcher", "Pattern": "*gamma*", "IgnoreCase": true }
+      ]
+    }
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json" },
+    "BodyAsJson": {
+      "data": {
+        "search": {
+          "programSets": {
+            "nodes": [
+              {
+                "id": "show-gamma-id",
+                "title": "Gamma Show",
+                "numberOfElements": 3
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}

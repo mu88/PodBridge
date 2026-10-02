@@ -65,10 +65,10 @@
                                 }
                             </td>
                             <td data-label="Show">
-                                <a class="podcast-name" href="/podcasts/@podcast.PodcastId">@title</a>
+                                <a class="podcast-name" href="/podcasts/@podcast.PodcastId" data-testid="@($"podcast-title-{podcast.PodcastId}")">@title</a>
                                 <div class="podcast-id">@podcast.PodcastId</div>
                             </td>
-                            <td data-label="Feed"><a class="action-link" href="@feedUrl" target="_blank">RSS</a></td>
+                            <td data-label="Feed"><a class="action-link" href="@feedUrl" target="_blank" data-testid="@($"podcast-feed-link-{podcast.PodcastId}")">RSS</a></td>
                             <td data-label="Subscribe">
                                 <a class="action-link action-link--accent" href="antennapod-subscribe://@feedUrl" target="_blank">Subscribe in AntennaPod</a>
                             </td>

@@ -156,6 +156,45 @@ public class PodBridgeOptionsTests
     }
 
     [Test]
+    public void EffectiveRefreshInterval_WhenRefreshIntervalNotSet_FallsBackToRefreshIntervalMinutes()
+    {
+        // Arrange
+        var options = new PodBridgeOptionsBuilder().WithDefaults().Build();
+
+        // Act & Assert
+        options.EffectiveRefreshInterval.Should().Be(TimeSpan.FromMinutes(options.RefreshIntervalMinutes));
+    }
+
+    [Test]
+    public void EffectiveRefreshInterval_WhenRefreshIntervalSet_TakesPrecedenceOverRefreshIntervalMinutes()
+    {
+        // Arrange
+        var options = new PodBridgeOptionsBuilder()
+            .WithDefaults()
+            .WithRefreshInterval(TimeSpan.FromSeconds(10))
+            .Build();
+
+        // Act & Assert
+        options.EffectiveRefreshInterval.Should().Be(TimeSpan.FromSeconds(10));
+    }
+
+    [Test]
+    public void Validate_NonPositiveRefreshInterval_ReturnsValidationError()
+    {
+        // Arrange
+        var options = new PodBridgeOptionsBuilder()
+            .WithDefaults()
+            .WithRefreshInterval(TimeSpan.Zero)
+            .Build();
+
+        // Act
+        var results = options.Validate(new ValidationContext(options)).ToList();
+
+        // Assert
+        results.Should().Contain(r => r.ErrorMessage!.Contains("RefreshInterval"));
+    }
+
+    [Test]
     public void Validate_ValidConfiguration_ReturnsNoErrors()
     {
         // Arrange

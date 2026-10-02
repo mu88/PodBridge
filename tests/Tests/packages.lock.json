@@ -107,6 +107,16 @@
           "Microsoft.TestPlatform.TestHost": "18.10.0"
         }
       },
+      "Microsoft.Playwright": {
+        "type": "Direct",
+        "requested": "[1.63.0, )",
+        "resolved": "1.63.0",
+        "contentHash": "O9F45Tt5vjauIo7mTTgQtahigL7cfRLvBMpErLJfdvgCnQ14yue5BmRASNnfNBWRBni4Mqp2YiD1eFGIO4nUUw==",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
+          "System.ComponentModel.Annotations": "5.0.0"
+        }
+      },
       "mu88.Shared": {
         "type": "Direct",
         "requested": "[8.4.0, )",
@@ -428,6 +438,11 @@
         "dependencies": {
           "Microsoft.Net.Http.Headers": "2.3.0"
         }
+      },
+      "Microsoft.Bcl.AsyncInterfaces": {
+        "type": "Transitive",
+        "resolved": "6.0.0",
+        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
       },
       "Microsoft.CodeCoverage": {
         "type": "Transitive",
@@ -1022,6 +1037,11 @@
         "resolved": "1.1.118",
         "contentHash": "Onx6ovGSqXSK07n/0eM3ZusiNdB6cIlJdabQhWGgJp3Vooy9AaLS/tigeybOJAobqbtggTamoWndz72JscZBvw=="
       },
+      "System.ComponentModel.Annotations": {
+        "type": "Transitive",
+        "resolved": "5.0.0",
+        "contentHash": "dMkqfy2el8A8/I76n2Hi1oBFEbG1SfxD2l5nhwXV3XjlnOmwxJlQbYpJH4W51odnU9sARCSAgv7S3CyAFMkpYg=="
+      },
       "System.Diagnostics.EventLog": {
         "type": "Transitive",
         "resolved": "10.0.12",
@@ -1048,8 +1068,8 @@
         "dependencies": {
           "Microsoft.AspNetCore.OpenApi": "[10.0.12, )",
           "Microsoft.EntityFrameworkCore": "[10.0.12, )",
-          "PodBridge.Logic": "[1.0.1, )",
-          "PodBridge.Persistence": "[1.0.1, )",
+          "PodBridge.Logic": "[1.1.0, )",
+          "PodBridge.Persistence": "[1.1.0, )",
           "Scalar.AspNetCore": "[2.17.3, )",
           "mu88.Shared": "[8.4.0, )"
         }
@@ -1067,7 +1087,7 @@
         "type": "Project",
         "dependencies": {
           "Npgsql.EntityFrameworkCore.PostgreSQL": "[10.0.3, )",
-          "PodBridge.Logic": "[1.0.1, )"
+          "PodBridge.Logic": "[1.1.0, )"
         }
       },
       "Microsoft.AspNetCore.OpenApi": {

@@ -5,6 +5,7 @@ namespace Tests.TestSupport.Builders;
 public sealed class PodBridgeOptionsBuilder
 {
     private int _refreshIntervalMinutes = 60;
+    private TimeSpan? _refreshInterval;
     private bool _backgroundRefreshEnabled = true;
     private int _rateLimitingPermitLimit = 15;
     private int _rateLimitingWindowMinutes = 5;
@@ -16,6 +17,7 @@ public sealed class PodBridgeOptionsBuilder
     public PodBridgeOptionsBuilder WithDefaults()
     {
         _refreshIntervalMinutes = 60;
+        _refreshInterval = null;
         _backgroundRefreshEnabled = true;
         _rateLimitingPermitLimit = 15;
         _rateLimitingWindowMinutes = 5;
@@ -23,6 +25,12 @@ public sealed class PodBridgeOptionsBuilder
         _authEnabled = false;
         _authUsernameHash = null;
         _authPasswordHash = null;
+        return this;
+    }
+
+    public PodBridgeOptionsBuilder WithRefreshInterval(TimeSpan? interval)
+    {
+        _refreshInterval = interval;
         return this;
     }
 
@@ -51,6 +59,7 @@ public sealed class PodBridgeOptionsBuilder
         return new PodBridgeOptions
         {
             RefreshIntervalMinutes = _refreshIntervalMinutes,
+            RefreshInterval = _refreshInterval,
             BackgroundRefreshEnabled = _backgroundRefreshEnabled,
             RateLimitingPermitLimit = _rateLimitingPermitLimit,
             RateLimitingWindowMinutes = _rateLimitingWindowMinutes,

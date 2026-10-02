@@ -1,0 +1,82 @@
+{
+  "Request": {
+    "Methods": ["POST"],
+    "Path": "/graphql",
+    "Body": {
+      "MatchOperator": "And",
+      "Matchers": [
+        { "Name": "WildcardMatcher", "Pattern": "*programSet*" },
+        { "Name": "WildcardMatcher", "Pattern": "*\"showId\":\"show-gamma-id\"*" }
+      ]
+    }
+  },
+  "Response": {
+    "StatusCode": 200,
+    "Headers": { "Content-Type": "application/json" },
+    "BodyAsJson": {
+      "data": {
+        "programSet": {
+          "title": "Gamma Show",
+          "synopsis": "The third manual-test fixture show, added via the UI",
+          "description": "Extended description for Gamma Show",
+          "sharingUrl": "https://fixture.test/show/show-gamma",
+          "image": { "url": "https://fixture.test/images/{width}/gamma.jpg" },
+          "publicationService": { "title": "Test Platform" },
+          "items": {
+            "pageInfo": { "hasNextPage": false, "endCursor": null },
+            "nodes": [
+              {
+                "id": "gamma-ep-1",
+                "title": "Gamma Episode 1",
+                "publishDate": "2024-03-01T10:00:00Z",
+                "synopsis": "Gamma episode 1 synopsis",
+                "summary": "Gamma episode 1 summary",
+                "description": "Gamma episode 1 description",
+                "showNotes": "Gamma episode 1 show notes",
+                "duration": 2400,
+                "episodeNumber": 1,
+                "sharingUrl": "https://fixture.test/episode/gamma-ep-1",
+                "image": { "url": "https://fixture.test/images/{width}/gamma-ep-1.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/gamma-ep-1.mp3", "downloadUrl": "https://fixture.test/download/gamma-ep-1.mp3", "mimeType": "audio/mpeg" }
+                ]
+              },
+              {
+                "id": "gamma-ep-2",
+                "title": "Gamma Episode 2",
+                "publishDate": "2024-03-08T10:00:00Z",
+                "synopsis": "Gamma episode 2 synopsis",
+                "summary": "Gamma episode 2 summary",
+                "description": "Gamma episode 2 description",
+                "showNotes": "Gamma episode 2 show notes",
+                "duration": 2500,
+                "episodeNumber": 2,
+                "sharingUrl": "https://fixture.test/episode/gamma-ep-2",
+                "image": { "url": "https://fixture.test/images/{width}/gamma-ep-2.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/gamma-ep-2.mp3", "downloadUrl": "https://fixture.test/download/gamma-ep-2.mp3", "mimeType": "audio/mpeg" }
+                ]
+              },
+              {
+                "id": "gamma-ep-3",
+                "title": "Gamma Episode 3",
+                "publishDate": "2024-03-15T10:00:00Z",
+                "synopsis": "Gamma episode 3 synopsis",
+                "summary": "Gamma episode 3 summary",
+                "description": "Gamma episode 3 description",
+                "showNotes": "Gamma episode 3 show notes",
+                "duration": 2600,
+                "episodeNumber": 3,
+                "sharingUrl": "https://fixture.test/episode/gamma-ep-3",
+                "image": { "url": "https://fixture.test/images/{width}/gamma-ep-3.jpg" },
+                "audios": [
+                  { "url": "https://fixture.test/audio/gamma-ep-3.mp3", "downloadUrl": "https://fixture.test/download/gamma-ep-3.mp3", "mimeType": "audio/mpeg" }
+                ]
+              }
+            ]
+          }
+        }
+      }
+    }
+  }
+}
