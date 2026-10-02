@@ -166,7 +166,7 @@ public sealed class TestWebApplicationFactory : WebApplicationFactory<Program>
         var settings = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
             { "ASPNETCORE_ENVIRONMENT", "Testing" },
-            { "PodBridge:RefreshIntervalMinutes", "60" },
+            { "PodBridge:RefreshInterval", "01:00:00" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
             { "PodBridge:BackgroundRefreshEnabled", "false" },
         };

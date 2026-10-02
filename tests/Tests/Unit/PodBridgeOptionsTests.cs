@@ -27,7 +27,7 @@ public class PodBridgeOptionsTests
         // Arrange
         var configDict = new Dictionary<string, string?>(StringComparer.Ordinal)
         {
-            { "PodBridge:RefreshIntervalMinutes", "120" },
+            { "PodBridge:RefreshInterval", "02:00:00" },
             { "PodBridge:GraphQlEndpoint", "https://fixture.test/graphql" },
         };
 
@@ -41,7 +41,7 @@ public class PodBridgeOptionsTests
         config.GetSection(PodBridgeOptions.SectionName).Bind(testee);
 
         // Assert
-        testee.RefreshIntervalMinutes.Should().Be(120);
+        testee.RefreshInterval.Should().Be(TimeSpan.FromHours(2));
         testee.GraphQlEndpoint.Should().Be(new Uri("https://fixture.test/graphql"));
     }
 
@@ -59,7 +59,7 @@ public class PodBridgeOptionsTests
         config.GetSection(PodBridgeOptions.SectionName).Bind(testee);
 
         // Assert
-        testee.RefreshIntervalMinutes.Should().Be(360);
+        testee.RefreshInterval.Should().Be(TimeSpan.FromHours(6));
         testee.BackgroundRefreshEnabled.Should().BeTrue();
     }
 
@@ -153,29 +153,6 @@ public class PodBridgeOptionsTests
 
         // Assert
         results.Should().BeEmpty();
-    }
-
-    [Test]
-    public void EffectiveRefreshInterval_WhenRefreshIntervalNotSet_FallsBackToRefreshIntervalMinutes()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder().WithDefaults().Build();
-
-        // Act & Assert
-        options.EffectiveRefreshInterval.Should().Be(TimeSpan.FromMinutes(options.RefreshIntervalMinutes));
-    }
-
-    [Test]
-    public void EffectiveRefreshInterval_WhenRefreshIntervalSet_TakesPrecedenceOverRefreshIntervalMinutes()
-    {
-        // Arrange
-        var options = new PodBridgeOptionsBuilder()
-            .WithDefaults()
-            .WithRefreshInterval(TimeSpan.FromSeconds(10))
-            .Build();
-
-        // Act & Assert
-        options.EffectiveRefreshInterval.Should().Be(TimeSpan.FromSeconds(10));
     }
 
     [Test]

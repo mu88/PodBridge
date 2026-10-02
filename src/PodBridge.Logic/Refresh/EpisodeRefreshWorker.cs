@@ -71,7 +71,7 @@ internal sealed partial class EpisodeRefreshWorker(
             return;
         }
 
-        using var timer = new PeriodicTimer(options.CurrentValue.EffectiveRefreshInterval, timeProvider);
+        using var timer = new PeriodicTimer(options.CurrentValue.RefreshInterval, timeProvider);
 
         do
         {

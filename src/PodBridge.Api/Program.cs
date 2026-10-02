@@ -173,16 +173,6 @@ var resolvedOptions = app.Services.GetRequiredService<IOptions<PodBridgeOptions>
 // without a reachable database - PodcastDatabaseHealthCheck surfaces the resulting Degraded status instead.
 await MigrateDatabaseWithRetryAsync(app.Services);
 
-// TEMPORARY (remove after the one-time production deploy that runs this): migrates podcasts that used to
-// be configured via the "PodBridge:Podcasts" appsettings/env-var section (see git history of
-// PodBridgeOptions) into the new Postgres-backed AppDbContext.Podcasts table. Reads the legacy section
-// directly via IConfiguration (not through PodBridgeOptions, which no longer has a Podcasts property at
-// all) so this works purely from raw config without any dependency on the removed binding. Fail-safe/
-// idempotent: only inserts podcasts whose ShowId isn't already present, so re-running this on every
-// startup after the legacy section has been removed - or if it's re-run against an already-migrated
-// database - is always a safe no-op.
-await MigrateLegacyPodcastConfigAsync(app.Services, builder.Configuration);
-
 // Trust the immediate reverse proxy (e.g. a managed container platform's built-in front-end, or an
 // operator-provided nginx/Traefik/Caddy) so RemoteIpAddress - used by the rate limiter below - reflects
 // the real client IP instead of the proxy's. KnownNetworks/KnownProxies are cleared because such proxies
@@ -277,46 +267,6 @@ static async Task MigrateDatabaseWithRetryAsync(IServiceProvider services)
         {
             logger.LogError(exception, "Database migration failed after {MaxAttempts} attempts; continuing startup in a degraded state", maxAttempts);
         }
-    }
-}
-
-// TEMPORARY: see call site comment above for context/removal plan.
-static async Task MigrateLegacyPodcastConfigAsync(IServiceProvider services, IConfiguration configuration)
-{
-    var legacyPodcasts = configuration.GetSection("PodBridge:Podcasts").Get<List<PodcastConfig>>() ?? [];
-    if (legacyPodcasts.Count == 0)
-    {
-        return;
-    }
-
-    var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger("PodBridge.Startup.LegacyPodcastMigration");
-
-    try
-    {
-        await using var scope = services.CreateAsyncScope();
-        var dbContextFactory = scope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>();
-        await using var dbContext = await dbContextFactory.CreateDbContextAsync();
-
-        var existingShowIds = await dbContext.Podcasts.Select(podcast => podcast.ShowId).ToListAsync();
-        var podcastsToMigrate = legacyPodcasts.Where(podcast => !existingShowIds.Contains(podcast.ShowId, StringComparer.Ordinal)).ToList();
-        if (podcastsToMigrate.Count == 0)
-        {
-            return;
-        }
-
-        dbContext.Podcasts.AddRange(podcastsToMigrate);
-        await dbContext.SaveChangesAsync();
-
-        // .Count on a List<T> is a trivial O(1) read, not an expensive log argument.
-#pragma warning disable CA1873
-        logger.LogInformation("Migrated {Count} legacy podcast(s) from configuration into the database", podcastsToMigrate.Count);
-#pragma warning restore CA1873
-    }
-    catch (Exception exception)
-    {
-        // Non-fatal: the legacy section stays in config until the operator removes it, so a failed
-        // attempt here (e.g. a still-unreachable database) is simply retried on the next app restart.
-        logger.LogError(exception, "Failed to migrate legacy podcast configuration into the database");
     }
 }
 

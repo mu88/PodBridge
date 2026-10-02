@@ -545,7 +545,7 @@ public sealed class RefreshScenarioTests
         // avoiding a race between the ThreadPool scheduling the task and this test advancing the fake clock.
         var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var executeTask = (Task)executeAsyncMethod.Invoke(testee, [CancellationToken.None])!;
-        timeProvider.Advance(TimeSpan.FromMinutes(podBridgeOptions.RefreshIntervalMinutes)); // triggers the tick that then stops the loop
+        timeProvider.Advance(podBridgeOptions.RefreshInterval); // triggers the tick that then stops the loop
         await executeTask.WaitAsync(TimeSpan.FromSeconds(5), TimeProvider.System);
 
         // Assert
@@ -572,7 +572,7 @@ public sealed class RefreshScenarioTests
         // Act
         var executeAsyncMethod = typeof(EpisodeRefreshWorker).GetMethod("ExecuteAsync", BindingFlags.NonPublic | BindingFlags.Instance)!;
         var executeTask = (Task)executeAsyncMethod.Invoke(testee, [cts.Token])!;
-        timeProvider.Advance(TimeSpan.FromMinutes(podBridgeOptions.RefreshIntervalMinutes)); // first tick: default continueLoop() runs and returns true
+        timeProvider.Advance(podBridgeOptions.RefreshInterval); // first tick: default continueLoop() runs and returns true
         await Task.Delay(TimeSpan.FromMilliseconds(100), TimeProvider.System, cts.Token); // lets the loop re-enter and start waiting on the timer again
         await cts.CancelAsync();
         var act = async () => await executeTask.WaitAsync(TimeSpan.FromSeconds(5), TimeProvider.System, cts.Token);
