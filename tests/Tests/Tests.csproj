@@ -25,6 +25,7 @@
     <PackageReference Include="NUnit3TestAdapter" PrivateAssets="All" />
     <PackageReference Include="Npgsql" />
     <PackageReference Include="Testcontainers" />
+    <PackageReference Include="Testcontainers.Playwright" />
     <PackageReference Include="Testcontainers.PostgreSql" />
     <PackageReference Include="WireMock.Net.Testcontainers" />
   </ItemGroup>

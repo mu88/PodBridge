@@ -191,6 +191,15 @@
           "SharpZipLib": "1.4.2"
         }
       },
+      "Testcontainers.Playwright": {
+        "type": "Direct",
+        "requested": "[4.15.0, )",
+        "resolved": "4.15.0",
+        "contentHash": "3WOA3/nxQWvv2CV46zT90tm5tKNp4nG1m3fgsxofVtAAOBC9lMEikogzJsWyuHieqFhx3eKp4axBRH7Du8vK9A==",
+        "dependencies": {
+          "Testcontainers": "4.15.0"
+        }
+      },
       "Testcontainers.PostgreSql": {
         "type": "Direct",
         "requested": "[4.15.0, )",

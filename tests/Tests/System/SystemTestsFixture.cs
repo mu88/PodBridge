@@ -7,7 +7,9 @@ using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using Microsoft.Playwright;
 using NUnit.Framework;
+using Testcontainers.Playwright;
 using Testcontainers.PostgreSql;
+using Tests.TestSupport;
 using WireMock.Net.Testcontainers;
 
 namespace Tests.SystemTests;
@@ -35,7 +37,7 @@ public class SystemTestsFixture
     private WireMockContainer? _wireMockContainer;
     private PostgreSqlContainer? _postgresContainer;
     private IContainer? _podBridgeContainer;
-    private IContainer? _playwrightContainer;
+    private PlaywrightContainer? _playwrightContainer;
     private IPlaywright? _playwright;
     private IBrowser? _browser;
 
@@ -80,8 +82,7 @@ public class SystemTestsFixture
             PostgresConnectionString = _postgresContainer.GetConnectionString();
 
             _playwright = await Playwright.CreateAsync();
-            var playwrightPort = _playwrightContainer.GetMappedPublicPort(3000);
-            _browser = await _playwright.Chromium.ConnectAsync($"ws://localhost:{playwrightPort}");
+            _browser = await _playwright.Chromium.ConnectAsync(_playwrightContainer!.GetConnectionString());
             Browser = _browser;
         }
         catch
@@ -214,6 +215,7 @@ public class SystemTestsFixture
     {
         var mappingsDir = Path.Combine(AppContext.BaseDirectory, "testData", "system", "wiremock-mappings");
         var container = new WireMockContainerBuilder()
+            .WithImage(TestcontainerImages.GetImageReference("wiremock"))
             .WithNetwork(_network)
             .WithNetworkAliases("wiremock")
             .WithMappings(mappingsDir)
@@ -225,7 +227,7 @@ public class SystemTestsFixture
 
     private async Task<PostgreSqlContainer> StartPostgresContainerAsync()
     {
-        var container = new PostgreSqlBuilder("postgres:18-alpine")
+        var container = new PostgreSqlBuilder(TestcontainerImages.GetImageReference("postgres"))
             .WithNetwork(_network)
             .WithNetworkAliases(PostgresNetworkAlias)
             .WithDatabase(PostgresDatabase)
@@ -273,13 +275,10 @@ public class SystemTestsFixture
         return container;
     }
 
-    private async Task<IContainer> StartPlaywrightContainerAsync()
+    private async Task<PlaywrightContainer> StartPlaywrightContainerAsync()
     {
-        var container = new ContainerBuilder("mcr.microsoft.com/playwright:v1.63.0-noble")
+        var container = new PlaywrightBuilder(TestcontainerImages.GetImageReference("playwright"))
             .WithNetwork(_network)
-            .WithPortBinding(3000, assignRandomHostPort: true)
-            .WithCommand("/bin/sh", "-c", "npx -y playwright@1.63.0 run-server --port 3000 --host 0.0.0.0")
-            .WithWaitStrategy(Wait.ForUnixContainer().UntilHttpRequestIsSucceeded(r => r.ForPort(3000).ForPath("/")))
             .Build();
 
         await container.StartAsync(_cancellationTokenSource.Token);
