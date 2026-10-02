@@ -4,6 +4,7 @@
     "test-projects": [
       "tests/Tests/Tests.csproj"
     ],
+    "test-case-filter": "TestCategory!=System",
     "reporters": [
       "dashboard",
       "html",
