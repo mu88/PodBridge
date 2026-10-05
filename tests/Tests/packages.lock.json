@@ -99,12 +99,12 @@
       },
       "Microsoft.NET.Test.Sdk": {
         "type": "Direct",
-        "requested": "[18.10.0, )",
-        "resolved": "18.10.0",
-        "contentHash": "0CZZ688UBvpQFB9HKo7wrNJNVe+AOM4UtipgwpER3TTM+d2DDM6QyKkIJZTR3mpbn9/zFbZEtAgVIz4SPTjQZQ==",
+        "requested": "[18.10.1, )",
+        "resolved": "18.10.1",
+        "contentHash": "SxCFvJE/2ltUQgCgv6+Ixagohw4sZc9hM7Wid2foaNM7paBscktoHLoRDz91fW8wbHG87Rg9Ku59/8PXumqUrA==",
         "dependencies": {
-          "Microsoft.CodeCoverage": "18.10.0",
-          "Microsoft.TestPlatform.TestHost": "18.10.0"
+          "Microsoft.CodeCoverage": "18.10.1",
+          "Microsoft.TestPlatform.TestHost": "18.10.1"
         }
       },
       "Microsoft.Playwright": {
@@ -211,13 +211,13 @@
       },
       "WireMock.Net.Testcontainers": {
         "type": "Direct",
-        "requested": "[2.15.0, )",
-        "resolved": "2.15.0",
-        "contentHash": "beO5j26utHKyIhT7CNGHd/w/Dqkot3hn8iHJ+ZTAmHQugA343fMnwGZTPxDMt7d2xMIm74oATWmZ2C251h1chQ==",
+        "requested": "[2.16.0, )",
+        "resolved": "2.16.0",
+        "contentHash": "2V6jrhVPM3/TUq8xlqC/YuVdeVTOHSpSrBTaUnnJ/g4HaLFJvB7hAZJ1IEszkv+g71oSNgU1oAfPlLqXY5kzhw==",
         "dependencies": {
           "Stef.Validation": "0.3.0",
           "Testcontainers": "4.14.0",
-          "WireMock.Net.RestClient": "2.15.0"
+          "WireMock.Net.RestClient": "2.16.0"
         }
       },
       "AngleSharp": {
@@ -455,8 +455,8 @@
       },
       "Microsoft.CodeCoverage": {
         "type": "Transitive",
-        "resolved": "18.10.0",
-        "contentHash": "zo1hqV+Nz6FlIwdc+aPfrvGzqfKAPPaZ6OPj1W8C0QQE2xH951AZwTUytL3K7XX8brVBUFd7MhrLDl3CtK3U/A=="
+        "resolved": "18.10.1",
+        "contentHash": "tV7tCyp/t+DuwQugLkCeUN7NBFFB4fEGRPr0gkMQ2nQgAvQQjmGlZZi1dsLzbyoe/A0mbnKybmkIh8qhT9p4Zw=="
       },
       "Microsoft.Data.Sqlite.Core": {
         "type": "Transitive",
@@ -886,15 +886,15 @@
       },
       "Microsoft.TestPlatform.ObjectModel": {
         "type": "Transitive",
-        "resolved": "18.10.0",
-        "contentHash": "aXA7DDbnt6MYu3eLBEDksNdl09QxJ/PpMzrFcSxqEOk3RvRGJzhKI5mezVCEOcvveRhjfw/mvn6xVXC/rTaOog=="
+        "resolved": "18.10.1",
+        "contentHash": "o+PuLDRVp1iwiVAPBADZItXgm9Ck23XtPhE4kZtZVi0uYnMiiz1Dx9Cjh75kJ+ijfqnORL3VOTOaQVKi0f/ixg=="
       },
       "Microsoft.TestPlatform.TestHost": {
         "type": "Transitive",
-        "resolved": "18.10.0",
-        "contentHash": "Spu6C7bgz1PmWN+Y7wS0PfGCw9Kwv5RvJbCwyQaEWjcwpMire+qYMrcZ7qk8agjy6nd0sdHLc3ugCSrGuSbZdw==",
+        "resolved": "18.10.1",
+        "contentHash": "KYz2omqkoz9E2mWa4fdgT+Ycie1wi5968EmyJlusjlp87RxxtA2FvDm8tcBEYIDzLnkWGnsKjE4d13Z7/rxkQA==",
         "dependencies": {
-          "Microsoft.TestPlatform.ObjectModel": "18.10.0"
+          "Microsoft.TestPlatform.ObjectModel": "18.10.1"
         }
       },
       "Newtonsoft.Json": {
@@ -1058,18 +1058,18 @@
       },
       "WireMock.Net.Abstractions": {
         "type": "Transitive",
-        "resolved": "2.15.0",
-        "contentHash": "Qvk7kn416o0wkGmuw1mjzMhOtD49AnUYWnAT0ozzMvksdCC5CsBLgdKn343StYgicMyaT1/gZvYlkTOTnnLTAg=="
+        "resolved": "2.16.0",
+        "contentHash": "Hqd++csdyvt7EfeNIenOEAZlL0c7Jgv2z9BKRNjtJ/fNPTCKV5t9snbFH2DVXroHEJRG70O2reHdLq1i+EQwgA=="
       },
       "WireMock.Net.RestClient": {
         "type": "Transitive",
-        "resolved": "2.15.0",
-        "contentHash": "K3zAAlmp0NAfCB5/VLbc+QVTQfY0QDGbalejPDJ/8mVGNL+bRrryeTGcjzIPuC4QyywOsyNtHnzqxuKop6YsIg==",
+        "resolved": "2.16.0",
+        "contentHash": "Xq3lVASHdLT47uLOdr3Y2NQgEeqDTrlmCbSh/K/+pRzNLJlDFwsPIZNbMae2CqP2ccjKSAcOiwU683ayJTrUgw==",
         "dependencies": {
           "JsonConverter.Newtonsoft.Json": "0.13.0",
           "RestEase": "1.6.4",
           "Stef.Validation": "0.3.0",
-          "WireMock.Net.Abstractions": "2.15.0"
+          "WireMock.Net.Abstractions": "2.16.0"
         }
       },
       "podbridge.api": {
@@ -1079,7 +1079,7 @@
           "Microsoft.EntityFrameworkCore": "[10.0.12, )",
           "PodBridge.Logic": "[1.1.0, )",
           "PodBridge.Persistence": "[1.1.0, )",
-          "Scalar.AspNetCore": "[2.17.3, )",
+          "Scalar.AspNetCore": "[2.17.6, )",
           "mu88.Shared": "[8.4.0, )"
         }
       },
@@ -1184,9 +1184,9 @@
       },
       "Scalar.AspNetCore": {
         "type": "CentralTransitive",
-        "requested": "[2.17.3, )",
-        "resolved": "2.17.3",
-        "contentHash": "TwAf1zy/MH2famozcDqk9+/jD37VAbonRXfnjAso0Q2YKeWtA0kH59WxhuevvAxWDL3jUU3TDpNmUFS2gF9bHw=="
+        "requested": "[2.17.6, )",
+        "resolved": "2.17.6",
+        "contentHash": "Qho7zxnjr5620jueYl40XlPNDJdn871MPe352AfYE2zvUkneMjOR5U9Cj+4f1Na7ODSSp5DUL0WM3MTdoKOazA=="
       }
     }
   }

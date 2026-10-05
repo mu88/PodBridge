@@ -464,13 +464,6 @@
           "Microsoft.Extensions.DependencyInjection.Abstractions": "10.0.12"
         }
       }
-    },
-    "net10.0/linux-x64": {
-      "System.Diagnostics.EventLog": {
-        "type": "Transitive",
-        "resolved": "10.0.12",
-        "contentHash": "sOZM+VyRj1pg/ItlHsvrSbjws6oGqZveTzTNBGZ9ziwRDyKsOF3ub6vhvOdxotCIqtlnyHAIwP5sLNvgiZC+pQ=="
-      }
     }
   }
 }
