@@ -1,15 +1,13 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Globalization;
 using CliWrap;
-using CliWrap.Buffered;
 using DotNet.Testcontainers.Builders;
 using DotNet.Testcontainers.Containers;
 using DotNet.Testcontainers.Networks;
 using Microsoft.Playwright;
+using mu88.Shared.Testing.Docker;
+using mu88.Shared.Testing.Playwright;
+using mu88.Shared.Testing.Testcontainers;
 using NUnit.Framework;
-using Testcontainers.Playwright;
 using Testcontainers.PostgreSql;
-using Tests.TestSupport;
 using WireMock.Net.Testcontainers;
 
 namespace Tests.SystemTests;
@@ -23,6 +21,7 @@ public class SystemTestsFixture
     private const string PostgresDatabase = "podbridge";
     private const string PostgresUsername = "podbridge";
     private const string PostgresPassword = "podbridge-system-test-pw";
+    private const string DockerfilePath = "testData/system/Dockerfile";
 
     // Pre-computed PBKDF2 hashes (via PodBridge.Logic.Security.CredentialHasher.Hash) of the plaintext
     // constants above, hardcoded here rather than computed at test time so this system test stays a true
@@ -37,9 +36,7 @@ public class SystemTestsFixture
     private WireMockContainer? _wireMockContainer;
     private PostgreSqlContainer? _postgresContainer;
     private IContainer? _podBridgeContainer;
-    private PlaywrightContainer? _playwrightContainer;
-    private IPlaywright? _playwright;
-    private IBrowser? _browser;
+    private PlaywrightSession? _playwrightSession;
 
     public static Uri PodBridgeBaseAddress { get; private set; } = null!;
     public static Uri PodBridgeInternalAddress { get; private set; } = null!;
@@ -55,7 +52,7 @@ public class SystemTestsFixture
 
         try
         {
-            var imageTag = $"0.0.0-system-test-{DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(CultureInfo.InvariantCulture)}";
+            var imageTag = DockerImageBuilder.GenerateContainerImageTag();
 
             // The Docker image build has no dependency on the network/other containers, and WireMock/
             // Postgres/Playwright have no dependency on each other or on the image build - run all four
@@ -68,22 +65,22 @@ public class SystemTestsFixture
 
             var wireMockTask = StartWireMockContainerAsync();
             var postgresTask = StartPostgresContainerAsync();
-            var playwrightContainerTask = StartPlaywrightContainerAsync();
+            var playwrightSessionTask = PlaywrightSession.StartAsync(
+                TestcontainerImages.GetImageFromDockerfile(DockerfilePath, "playwright"),
+                _network,
+                _cancellationTokenSource.Token);
 
-            await Task.WhenAll(imageBuildTask, wireMockTask, postgresTask, playwrightContainerTask);
+            await Task.WhenAll(imageBuildTask, wireMockTask, postgresTask, playwrightSessionTask);
 
             _wireMockContainer = await wireMockTask;
             _postgresContainer = await postgresTask;
-            _playwrightContainer = await playwrightContainerTask;
+            _playwrightSession = await playwrightSessionTask;
             _podBridgeContainer = await StartPodBridgeContainerAsync(imageTag);
 
             PodBridgeBaseAddress = GetPodBridgeBaseAddress(_podBridgeContainer);
             PodBridgeInternalAddress = new Uri("http://podbridge:8080/");
             PostgresConnectionString = _postgresContainer.GetConnectionString();
-
-            _playwright = await Playwright.CreateAsync();
-            _browser = await _playwright.Chromium.ConnectAsync(_playwrightContainer!.GetConnectionString());
-            Browser = _browser;
+            Browser = _playwrightSession.Browser;
         }
         catch
         {
@@ -125,44 +122,19 @@ public class SystemTestsFixture
         return new Uri($"http://localhost:{port}");
     }
 
-    // CliWrap's CommandTask<T> implements IDisposable and is correctly disposed via the using declaration
-    // below; the analyzer's dataflow incorrectly extends that "needs disposal" flag to the plain
-    // BufferedCommandResult value produced by awaiting it, which itself does not implement IDisposable.
-    [SuppressMessage("IDisposableAnalyzers.Correctness", "IDISP001:Dispose created", Justification = "False positive: the actual disposable (CommandTask<T>) is disposed via 'using'; 'result' is a plain non-disposable BufferedCommandResult.")]
     private static async Task BuildDockerImageAsync(string imageTag)
     {
         // PodBridge intentionally has no Dockerfile (see README.md) - the image is built via the .NET SDK's
         // built-in container publishing support (Microsoft.NET.Build.Containers, chiseled base image), routed
         // through mu88.Shared's PublishContainersForMultipleFamilies target (same as the production release
-        // build). DoNotApplyGitHubScope=true keeps the image local (no ghcr.io push) so Testcontainers can
-        // reference it by its plain repository:tag name; without it, mu88.Shared.targets would auto-redirect
-        // the build to push to ghcr.io whenever GITHUB_ACTIONS is set, leaving no local image to start.
-        // --os linux --arch amd64 restricts the build to a single-platform image (matching the sibling
-        // PodScrub repo): without it, the target produces a multi-arch image index (linux-x64 + linux-arm64),
-        // which Docker can only load locally when its containerd image store is enabled - not the case on
-        // GitHub-hosted runners, causing "CONTAINER1020: containerd image store is not enabled" at load time.
+        // build), wrapped by mu88.Shared.Testing's DockerImageBuilder helper.
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", ".."));
-        using var commandTask = Cli.Wrap("dotnet")
-            .WithArguments(new[]
-            {
-                "publish", "src/PodBridge.Api/PodBridge.Api.csproj",
-                "--os", "linux",
-                "--arch", "amd64",
-                "-t:PublishContainersForMultipleFamilies",
-                $"-p:ReleaseVersion={imageTag}",
-                "-p:IsRelease=false",
-                "-p:DoNotApplyGitHubScope=true",
-                "-p:ContainerRepository=podbridge-api",
-            })
-            .WithWorkingDirectory(repoRoot)
-            .WithValidation(CommandResultValidation.None)
-            .ExecuteBufferedAsync();
-        var result = await commandTask;
-
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidOperationException($"Container publish failed with exit code {result.ExitCode.ToString(CultureInfo.InvariantCulture)}. Output: {result.StandardOutput}. Error: {result.StandardError}");
-        }
+        await DockerImageBuilder.BuildAsync(
+            "src/PodBridge.Api/PodBridge.Api.csproj",
+            imageTag,
+            "podbridge-api",
+            repoRoot,
+            CancellationToken.None);
     }
 
     private async Task Cleanup()
@@ -173,19 +145,9 @@ public class SystemTestsFixture
         // in-flight test operations, but Testcontainers cleanup calls need a fresh, non-cancelled token.
         using var cleanupCancellationTokenSource = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
-        if (_browser != null)
+        if (_playwrightSession != null)
         {
-            await _browser.CloseAsync();
-        }
-
-        if (_playwright != null)
-        {
-            _playwright.Dispose();
-        }
-
-        if (_playwrightContainer != null)
-        {
-            await _playwrightContainer.DisposeAsync();
+            await _playwrightSession.DisposeAsync();
         }
 
         if (_podBridgeContainer != null)
@@ -215,7 +177,7 @@ public class SystemTestsFixture
     {
         var mappingsDir = Path.Combine(AppContext.BaseDirectory, "testData", "system", "wiremock-mappings");
         var container = new WireMockContainerBuilder()
-            .WithImage(TestcontainerImages.GetImageReference("wiremock"))
+            .WithImage(TestcontainerImages.GetImageFromDockerfile(DockerfilePath, "wiremock"))
             .WithNetwork(_network)
             .WithNetworkAliases("wiremock")
             .WithMappings(mappingsDir)
@@ -227,7 +189,7 @@ public class SystemTestsFixture
 
     private async Task<PostgreSqlContainer> StartPostgresContainerAsync()
     {
-        var container = new PostgreSqlBuilder(TestcontainerImages.GetImageReference("postgres"))
+        var container = new PostgreSqlBuilder(TestcontainerImages.GetImageFromDockerfile(DockerfilePath, "postgres"))
             .WithNetwork(_network)
             .WithNetworkAliases(PostgresNetworkAlias)
             .WithDatabase(PostgresDatabase)
@@ -274,14 +236,5 @@ public class SystemTestsFixture
         await container.StartAsync(_cancellationTokenSource.Token);
         return container;
     }
-
-    private async Task<PlaywrightContainer> StartPlaywrightContainerAsync()
-    {
-        var container = new PlaywrightBuilder(TestcontainerImages.GetImageReference("playwright"))
-            .WithNetwork(_network)
-            .Build();
-
-        await container.StartAsync(_cancellationTokenSource.Token);
-        return container;
-    }
 }
+

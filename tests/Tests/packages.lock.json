@@ -137,6 +137,25 @@
           "StyleCop.Analyzers": "1.1.118"
         }
       },
+      "mu88.Shared.Testing": {
+        "type": "Direct",
+        "requested": "[8.5.0, )",
+        "resolved": "8.5.0",
+        "contentHash": "PM4MDr1TTeJ18oM/klVXceNMwuV9L7pPANkytxQM9IKCJ7RVpc66U72tz7zfsK08BnT/UBk/Kyc14JcIqZIuIg==",
+        "dependencies": {
+          "CliWrap": "3.10.5",
+          "Docker.DotNet": "3.125.15",
+          "FluentAssertions": "8.11.0",
+          "FluentAssertions.Web.v8": "2.0.3",
+          "IDisposableAnalyzers": "4.0.8",
+          "Meziantou.Analyzer": "3.0.266",
+          "Microsoft.Playwright": "1.48.0",
+          "NUnit": "4.6.1",
+          "StyleCop.Analyzers": "1.1.118",
+          "Testcontainers": "4.15.0",
+          "Testcontainers.Playwright": "4.15.0"
+        }
+      },
       "Npgsql": {
         "type": "Direct",
         "requested": "[10.0.3, )",
@@ -255,6 +274,14 @@
           "System.Diagnostics.EventLog": "6.0.0"
         }
       },
+      "Docker.DotNet": {
+        "type": "Transitive",
+        "resolved": "3.125.15",
+        "contentHash": "XN8FKxVv8Mjmwu104/Hl9lM61pLY675s70gzwSj8KR5pwblo8HfWLcCuinh9kYsqujBkMH4HVRCEcRuU6al4BQ==",
+        "dependencies": {
+          "Newtonsoft.Json": "13.0.1"
+        }
+      },
       "Docker.DotNet.Enhanced": {
         "type": "Transitive",
         "resolved": "4.3.3",
@@ -346,8 +373,8 @@
       },
       "Meziantou.Analyzer": {
         "type": "Transitive",
-        "resolved": "3.0.159",
-        "contentHash": "VPNxfghpjFUAv6fLLVU6dNhqRrqFyAYb/CDPq+mA/KhAUv5I0ozpYi4UmvUfqPpmcVeDJiHYND486Epv149OcA=="
+        "resolved": "3.0.266",
+        "contentHash": "IA1m/Dvud0eJNMcC+pTDNVdaLPs4QMhRBMAVjQZnTdWwTDUDIJO/JvfAZpRULgi0hoAHlXQVkPRtLokNvRcaiQ=="
       },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",

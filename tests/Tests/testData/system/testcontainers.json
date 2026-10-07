@@ -1,5 +1,0 @@
-{
-  "postgres": { "image": "postgres", "tag": "18-alpine" },
-  "playwright": { "image": "mcr.microsoft.com/playwright", "tag": "v1.63.0-noble" },
-  "wiremock": { "image": "sheyenrath/wiremock.net-alpine", "tag": "2.14.0" }
-}
