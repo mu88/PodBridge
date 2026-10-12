@@ -20,7 +20,7 @@ jobs:
       id-token: write
       packages: write
 
-    uses: mu88/common/.github/workflows/ci-cd.yml@309b9cb3032fc1ca368e5c414baf4998c700e314 # main
+    uses: mu88/common/.github/workflows/ci-cd.yml@65acae25e1b1766100f2541fbc4c0f4dcecc4375 # main
     with:
       docker-attest-provenance-and-sbom: true
       docker-publish-project: src/PodBridge.Api/PodBridge.Api.csproj
@@ -90,7 +90,7 @@ jobs:
       # without a custom domain configured - tracked upstream at
       # https://github.com/hostimdev/action/issues/2. Remove this comment once that's resolved.
       - name: Deploy to Hostim.dev
-        uses: hostimdev/action@d87535068e455ba46bad7f5a028e61543847768c # v2
+        uses: hostimdev/action@f0d52f27599d3f0cd34bc44cc705f7511b6fecf4 # v2
         with:
           api_token: ${{ secrets.HOSTIM_DEV_API_TOKEN }}
           project: ${{ vars.HOSTIM_DEV_PROJECT_ID }}
