@@ -66,7 +66,7 @@ public class SystemTestsFixture
             var wireMockTask = StartWireMockContainerAsync();
             var postgresTask = StartPostgresContainerAsync();
             var playwrightSessionTask = PlaywrightSession.StartAsync(
-                TestcontainerImages.GetImageFromDockerfile(DockerfilePath, "playwright"),
+                PlaywrightImages.GetServerImageTag(),
                 _network,
                 _cancellationTokenSource.Token);
 

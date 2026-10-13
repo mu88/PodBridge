@@ -107,16 +107,6 @@
           "Microsoft.TestPlatform.TestHost": "18.10.1"
         }
       },
-      "Microsoft.Playwright": {
-        "type": "Direct",
-        "requested": "[1.63.0, )",
-        "resolved": "1.63.0",
-        "contentHash": "O9F45Tt5vjauIo7mTTgQtahigL7cfRLvBMpErLJfdvgCnQ14yue5BmRASNnfNBWRBni4Mqp2YiD1eFGIO4nUUw==",
-        "dependencies": {
-          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
-          "System.ComponentModel.Annotations": "5.0.0"
-        }
-      },
       "mu88.Shared": {
         "type": "Direct",
         "requested": "[8.5.0, )",
@@ -139,18 +129,18 @@
       },
       "mu88.Shared.Testing": {
         "type": "Direct",
-        "requested": "[8.5.0, )",
-        "resolved": "8.5.0",
-        "contentHash": "PM4MDr1TTeJ18oM/klVXceNMwuV9L7pPANkytxQM9IKCJ7RVpc66U72tz7zfsK08BnT/UBk/Kyc14JcIqZIuIg==",
+        "requested": "[8.6.0, )",
+        "resolved": "8.6.0",
+        "contentHash": "mFajVlSR0SZEgd+ab2cQW5q0DmunUAubgZYoiTKPTKsR8uaGhCtOYRb/2zcSvfeZoCJ+OQhh4sqVUmZvEbp/og==",
         "dependencies": {
           "CliWrap": "3.10.5",
           "Docker.DotNet": "3.125.15",
           "FluentAssertions": "8.11.0",
           "FluentAssertions.Web.v8": "2.0.3",
           "IDisposableAnalyzers": "4.0.8",
-          "Meziantou.Analyzer": "3.0.266",
-          "Microsoft.Playwright": "1.48.0",
-          "NUnit": "4.6.1",
+          "Meziantou.Analyzer": "3.0.290",
+          "Microsoft.Playwright": "1.63.0",
+          "NUnit": "5.0.0",
           "StyleCop.Analyzers": "1.1.118",
           "Testcontainers": "4.15.0",
           "Testcontainers.Playwright": "4.15.0"
@@ -373,8 +363,8 @@
       },
       "Meziantou.Analyzer": {
         "type": "Transitive",
-        "resolved": "3.0.266",
-        "contentHash": "IA1m/Dvud0eJNMcC+pTDNVdaLPs4QMhRBMAVjQZnTdWwTDUDIJO/JvfAZpRULgi0hoAHlXQVkPRtLokNvRcaiQ=="
+        "resolved": "3.0.290",
+        "contentHash": "vdSXgMEPil67EFwkcicjSCMnB7TdhUNiR1Fjw1P8MN+UeX6yP8wTb7cNT20H/ejHuUxkrxQS1Rz4QcJuMLmCkA=="
       },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
@@ -869,6 +859,15 @@
         "type": "Transitive",
         "resolved": "2.12.0",
         "contentHash": "0xB/be+f6qYOhvQPUrVsLrau+fkowYv6gt9RIkajMhwT7sZnqtcA797yW3bS5kgSje+AQW4xZgyLnW641YFioQ=="
+      },
+      "Microsoft.Playwright": {
+        "type": "Transitive",
+        "resolved": "1.63.0",
+        "contentHash": "O9F45Tt5vjauIo7mTTgQtahigL7cfRLvBMpErLJfdvgCnQ14yue5BmRASNnfNBWRBni4Mqp2YiD1eFGIO4nUUw==",
+        "dependencies": {
+          "Microsoft.Bcl.AsyncInterfaces": "6.0.0",
+          "System.ComponentModel.Annotations": "5.0.0"
+        }
       },
       "Microsoft.Testing.Extensions.Telemetry": {
         "type": "Transitive",
