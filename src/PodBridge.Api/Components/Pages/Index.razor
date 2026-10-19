@@ -11,6 +11,7 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IPodcastCache PodcastCache
 @inject IFeedUrlBuilder FeedUrlBuilder
+@inject IAntennaPodSubscribeUrlBuilder AntennaPodSubscribeUrlBuilder
 @inject IHttpContextAccessor HttpContextAccessor
 
 <PageTitle>PodBridge - Feed Overview</PageTitle>
@@ -50,6 +51,7 @@
                     @foreach (var podcast in _podcasts)
                     {
                         var feedUrl = FeedUrlBuilder.BuildFeedUrl(podcast.PodcastId, requestBaseUrl);
+                        var subscribeUrl = AntennaPodSubscribeUrlBuilder.BuildSubscribeUrl(feedUrl);
                         var cached = PodcastCache.FindFull(podcast.PodcastId);
                         var lastUpdated = cached is not null
                             ? $"{cached.LastUpdated.ToString("dd.MM.yyyy HH:mm", CultureInfo.InvariantCulture)} (UTC)"
@@ -70,7 +72,7 @@
                             </td>
                             <td data-label="Feed"><a class="action-link" href="@feedUrl" target="_blank" data-testid="@($"podcast-feed-link-{podcast.PodcastId}")">RSS</a></td>
                             <td data-label="Subscribe">
-                                <a class="action-link action-link--accent" href="antennapod-subscribe://@feedUrl" target="_blank">Subscribe in AntennaPod</a>
+                                <a class="action-link action-link--accent" href="@subscribeUrl">Subscribe in AntennaPod</a>
                             </td>
                             <td data-label="Last Updated">
                                 <span class="status-pill">@(lastUpdated)</span>

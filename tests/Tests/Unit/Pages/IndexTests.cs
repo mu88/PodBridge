@@ -21,6 +21,7 @@ public sealed class IndexTests
     private BunitContext _ctx = null!;
     private IPodcastCache _podcastCache = null!;
     private IFeedUrlBuilder _feedUrlBuilder = null!;
+    private IAntennaPodSubscribeUrlBuilder _antennaPodSubscribeUrlBuilder = null!;
     private IHttpContextAccessor _httpContextAccessor = null!;
     private SqliteAppDbContextFactoryScope? _dbContextFactoryScope;
 
@@ -30,6 +31,7 @@ public sealed class IndexTests
         _ctx = new BunitContext();
         _podcastCache = Substitute.For<IPodcastCache>();
         _feedUrlBuilder = Substitute.For<IFeedUrlBuilder>();
+        _antennaPodSubscribeUrlBuilder = Substitute.For<IAntennaPodSubscribeUrlBuilder>();
         _httpContextAccessor = new HttpContextAccessor { HttpContext = new DefaultHttpContext() };
     }
 
@@ -135,6 +137,27 @@ public sealed class IndexTests
         testee.FindAll("img").Should().BeEmpty();
     }
 
+    [Test]
+    public void Render_WithConfiguredShow_RendersSubscribeLinkFromBuilderWithoutTargetBlank()
+    {
+        // Arrange
+        var show = new PodcastConfigBuilder().WithDefaults().WithPodcastId("example-show").WithShowId("show-id").Build();
+        ConfigureServices([show]);
+        const string feedUrl = "https://feeds.example.test/feeds/example-show";
+        const string subscribeUrl = "https://antennapod.org/deeplink/subscribe/?url=https%3A%2F%2Ffeeds.example.test%2Ffeeds%2Fexample-show";
+        _feedUrlBuilder.BuildFeedUrl(show.PodcastId, Arg.Any<string>()!).Returns(feedUrl);
+        _antennaPodSubscribeUrlBuilder.BuildSubscribeUrl(feedUrl).Returns(subscribeUrl);
+        _podcastCache.FindFull(show.PodcastId).Returns((CachedPodcast?)null);
+
+        // Act
+        using var testee = _ctx.Render<PodBridge.Api.Components.Pages.Index>();
+        var subscribeLink = testee.FindAll("a").Single(link => string.Equals(link.TextContent, "Subscribe in AntennaPod", StringComparison.Ordinal));
+
+        // Assert
+        subscribeLink.GetAttribute("href").Should().Be(subscribeUrl);
+        subscribeLink.HasAttribute("target").Should().BeFalse();
+    }
+
     private void ConfigureServices(IReadOnlyList<PodcastConfig> podcasts)
     {
         _dbContextFactoryScope?.Dispose();
@@ -142,6 +165,7 @@ public sealed class IndexTests
 
         _ctx.Services.AddSingleton(_podcastCache);
         _ctx.Services.AddSingleton(_feedUrlBuilder);
+        _ctx.Services.AddSingleton(_antennaPodSubscribeUrlBuilder);
         _ctx.Services.AddSingleton(_httpContextAccessor);
         _ctx.Services.AddSingleton(_dbContextFactoryScope.DbContextFactory);
     }

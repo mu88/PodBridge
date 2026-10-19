@@ -54,6 +54,7 @@ public class LogicServiceCollectionExtensionsTests
 
         using var scope = provider.CreateScope();
         scope.ServiceProvider.GetRequiredService<IFeedUrlBuilder>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<IAntennaPodSubscribeUrlBuilder>().Should().NotBeNull();
     }
 
     [Test]

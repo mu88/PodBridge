@@ -12,6 +12,7 @@
 @inject IDbContextFactory<AppDbContext> DbContextFactory
 @inject IPodcastCache PodcastCache
 @inject IFeedUrlBuilder FeedUrlBuilder
+@inject IAntennaPodSubscribeUrlBuilder AntennaPodSubscribeUrlBuilder
 @inject IHttpContextAccessor HttpContextAccessor
 @inject NavigationManager NavigationManager
 
@@ -45,7 +46,7 @@
             </div>
             <div class="podcast-actions">
                 <a class="action-link" href="@_feedUrl" target="_blank">RSS</a>
-                <a class="action-link action-link--accent" href="antennapod-subscribe://@_feedUrl" target="_blank">Subscribe in AntennaPod</a>
+                <a class="action-link action-link--accent" href="@_subscribeUrl">Subscribe in AntennaPod</a>
             </div>
         </div>
     </section>
@@ -110,6 +111,7 @@
     private Podcast? _cached;
     private IReadOnlyList<Episode> _episodes = [];
     private string? _feedUrl;
+    private string? _subscribeUrl;
 
     [Parameter]
     public string PodcastId { get; set; } = string.Empty;
@@ -135,6 +137,7 @@
         // HttpContextAccessor.HttpContext is guaranteed non-null: the app only ever uses static SSR (no
         // interactive render mode), so HttpContext is always present while a page is rendering.
         _feedUrl = FeedUrlBuilder.BuildFeedUrl(_podcastConfig.PodcastId, HttpContextAccessor.HttpContext!.Request.ToBaseUrl());
+        _subscribeUrl = AntennaPodSubscribeUrlBuilder.BuildSubscribeUrl(_feedUrl);
     }
 
     private static string FormatDuration(int? seconds)

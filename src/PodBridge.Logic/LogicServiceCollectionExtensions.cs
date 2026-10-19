@@ -31,6 +31,7 @@ public static class LogicServiceCollectionExtensions
         services.AddSingleton<GraphQlClient>();
         services.AddSingleton<IPodcastCache, PodcastCache>();
         services.AddScoped<IFeedUrlBuilder, FeedUrlBuilder>();
+        services.AddScoped<IAntennaPodSubscribeUrlBuilder, AntennaPodSubscribeUrlBuilder>();
         services.AddSingleton<IAppVersionProvider, AppVersionProvider>();
         services.AddSingleton(TimeProvider.System);
         services.AddSingleton<IEpisodeRefreshHealthState, EpisodeRefreshHealthState>();
