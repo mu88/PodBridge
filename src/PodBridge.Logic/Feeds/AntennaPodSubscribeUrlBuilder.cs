@@ -1,7 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace PodBridge.Logic.Feeds;
 
 internal sealed class AntennaPodSubscribeUrlBuilder : IAntennaPodSubscribeUrlBuilder
 {
+    [SuppressMessage("Maintainability", "S1075:URIs should not be hardcoded", Justification = "This URL defines the AntennaPod subscription deeplink format and is intentionally not configurable.")]
     private const string SubscribeUrlPrefix = "https://antennapod.org/deeplink/subscribe/?url=";
 
     public string BuildSubscribeUrl(string feedUrl)
