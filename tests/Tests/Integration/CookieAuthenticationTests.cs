@@ -1,3 +1,4 @@
+using AngleSharp.Html.Parser;
 using FluentAssertions;
 using FluentAssertions.Web;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -26,6 +27,9 @@ public sealed class CookieAuthenticationTests
         html.Should().Contain("Sign in");
         html.Should().Contain("login-username");
         html.Should().Contain("login-password");
+        using var document = new HtmlParser().ParseDocument(html);
+        document.QuerySelector("#login-username")!.GetAttribute("value").Should().BeNullOrEmpty();
+        document.QuerySelector("#login-password")!.GetAttribute("value").Should().BeNullOrEmpty();
     }
 
     [Test]

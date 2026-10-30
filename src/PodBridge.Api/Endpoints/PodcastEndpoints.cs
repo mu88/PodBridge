@@ -16,7 +16,7 @@ internal static class PodcastEndpoints
             .WithSummary("Gets a cached podcast feed.")
             .WithDescription("Returns RSS 2.0 + iTunes XML by default. Add ?format=json to retrieve the cached feed as JSON.")
             .Produces(StatusCodes.Status200OK, contentType: RssXmlNamespaces.RssMediaType)
-            .Produces<PodcastDetailsResponse>(StatusCodes.Status200OK, "application/json")
+            .Produces<PodcastDetailsResponse>(StatusCodes.Status200OK)
             .Produces(StatusCodes.Status404NotFound)
             .Produces(StatusCodes.Status503ServiceUnavailable, contentType: "text/plain")
             .RequireRateLimiting("feed-endpoint");
@@ -26,7 +26,7 @@ internal static class PodcastEndpoints
             .WithName("GetPodcasts")
             .WithSummary("Lists all configured podcasts.")
             .WithDescription("Returns one JSON item per configured podcast with the public feed URL and a cached or placeholder title.")
-            .Produces<IReadOnlyList<PodcastSummaryResponse>>(StatusCodes.Status200OK, "application/json")
+            .Produces<IReadOnlyList<PodcastSummaryResponse>>(StatusCodes.Status200OK)
             .RequireRateLimiting("podcasts-endpoint");
     }
 
