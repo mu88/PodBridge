@@ -61,6 +61,8 @@ public sealed class ScalarOpenApiTests
         getPodcasts.GetProperty("description").GetString()
             .Should().Be("Returns one JSON item per configured podcast with the public feed URL and a cached or placeholder title.");
         GetTagNames(getPodcasts).Should().Contain("Podcasts");
+        getPodcasts.GetProperty("responses").GetProperty("200").GetProperty("content")
+            .TryGetProperty("application/json", out _).Should().BeTrue();
 
         var getPodcastFeed = paths.GetProperty("/api/podcasts/{podcastId}").GetProperty("get");
         getPodcastFeed.GetProperty("operationId").GetString().Should().Be("GetPodcastFeed");
@@ -68,6 +70,36 @@ public sealed class ScalarOpenApiTests
         getPodcastFeed.GetProperty("description").GetString()
             .Should().Be("Returns RSS 2.0 + iTunes XML by default. Add ?format=json to retrieve the cached feed as JSON.");
         GetTagNames(getPodcastFeed).Should().Contain("Podcasts");
+        getPodcastFeed.GetProperty("responses").GetProperty("200").GetProperty("content")
+            .TryGetProperty("application/json", out _).Should().BeTrue();
+    }
+
+    [Test]
+    public async Task GetOpenApiDocument_DescribesPodcastManagementOperations()
+    {
+        // Arrange
+        await using var factory = CreateFactory();
+        using var client = CreateClient(factory);
+
+        // Act
+        using var response = await client.GetAsync("/openapi/v1.json");
+
+        // Assert
+        response.Should().Be200Ok();
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        var paths = json.RootElement.GetProperty("paths");
+        var searchPodcasts = paths.GetProperty("/api/podcasts/search").GetProperty("get");
+        searchPodcasts.GetProperty("operationId").GetString().Should().Be("SearchPodcasts");
+        searchPodcasts.GetProperty("summary").GetString().Should().Be("Searches the podcast directory by show title.");
+        searchPodcasts.GetProperty("description").GetString()
+            .Should().Be("Returns matching shows (ShowId, title, episode count) that can be passed to POST /podcasts to add one.");
+
+        var addPodcast = paths.GetProperty("/api/podcasts").GetProperty("post");
+        addPodcast.GetProperty("operationId").GetString().Should().Be("AddPodcast");
+        addPodcast.GetProperty("summary").GetString().Should().Be("Adds a podcast by ShowId.");
+        addPodcast.GetProperty("description").GetString()
+            .Should().Be("Resolves the show's title via the podcast directory unless Title is already supplied (e.g. from " +
+                "a prior search result), then persists it and triggers the initial episode backfill in the background.");
     }
 
     private static List<string?> GetTagNames(JsonElement operation)

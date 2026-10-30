@@ -45,6 +45,8 @@ public sealed class PodcastManagementEndpointsTests
 
         // Assert
         response.StatusCode.Should().Be(System.Net.HttpStatusCode.BadGateway);
+        var content = await response.Content.ReadAsStringAsync();
+        content.Should().Be("Podcast search failed - please try again shortly.");
     }
 
     [Test]

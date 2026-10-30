@@ -22,6 +22,7 @@ internal sealed partial class PodcastManagementService(
         }
         catch (Exception exception) when (exception is InvalidOperationException or HttpRequestException)
         {
+            // Stryker disable once all: Diagnostic logging is excluded consistently with the configured logger method filters.
             LogFailedToResolveShowId(exception, showId);
             return new PodcastAddResult(PodcastAddStatus.Failed);
         }
@@ -42,6 +43,7 @@ internal sealed partial class PodcastManagementService(
             case PodcastRepositoryAddOutcome.ShowIdAlreadyExists:
                 return new PodcastAddResult(PodcastAddStatus.ShowIdAlreadyExists, title);
             case PodcastRepositoryAddOutcome.Failed:
+                // Stryker disable once all: Diagnostic logging is excluded consistently with the configured logger method filters.
                 LogFailedToAddPodcast(showId);
                 return new PodcastAddResult(PodcastAddStatus.Failed, title);
             case PodcastRepositoryAddOutcome.Added:

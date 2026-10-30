@@ -6,6 +6,7 @@ internal static class AuthenticationApplicationBuilderExtensions
     {
         if (authEnabled)
         {
+            // Stryker disable once all: WebApplication automatically adds authentication middleware when registered services require it, making removal equivalent.
             UseAuthenticationMiddleware(app);
             app.UseAuthorization();
         }

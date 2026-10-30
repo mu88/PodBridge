@@ -140,13 +140,30 @@ public sealed class PodcastManagementServiceTests
     }
 
     [Test]
-    public async Task AddAsync_WithTitleContainingMultipleConsecutiveSpecialCharacters_CollapsesRunsToASingleHyphen()
+    public async Task AddAsync_WithMultiplePodcastIdCollisions_AppendsNextAvailableNumericSuffix()
     {
-        // Arrange: three consecutive spaces produce "---" after non-alphanumeric replacement, which needs
-        // more than one pass of the "--" -> "-" collapsing loop in Slugify to fully reduce to a single "-".
+        // Arrange
+        _podcastRepository.ExistsWithPodcastIdAsync("manual-show", Arg.Any<CancellationToken>()).Returns(true);
+        _podcastRepository.ExistsWithPodcastIdAsync("manual-show-2", Arg.Any<CancellationToken>()).Returns(true, false);
 
         // Act
-        var result = await _testee.AddAsync("multi-gap-show", "Show   Title", CancellationToken.None);
+        var result = await _testee.AddAsync("another-show", "Manual Show", CancellationToken.None);
+
+        // Assert
+        result.PodcastId.Should().Be("manual-show-3");
+        await _podcastRepository.Received(1).AddAsync(
+            Arg.Is<PodcastConfig>(podcast => podcast.PodcastId == "manual-show-3" && podcast.ShowId == "another-show"),
+            Arg.Any<CancellationToken>());
+    }
+
+    [TestCase("Show  Title", TestName = "AddAsync_WithTwoConsecutiveSeparators_PreservesSingleHyphen")]
+    [TestCase("Show   Title", TestName = "AddAsync_WithThreeConsecutiveSeparators_PreservesSingleHyphen")]
+    public async Task AddAsync_WithTitleContainingMultipleConsecutiveSpecialCharacters_CollapsesRunsToASingleHyphen(string title)
+    {
+        // Arrange
+
+        // Act
+        var result = await _testee.AddAsync("multi-gap-show", title, CancellationToken.None);
 
         // Assert
         result.PodcastId.Should().Be("show-title");
@@ -162,6 +179,6 @@ public sealed class PodcastManagementServiceTests
         var result = await _testee.AddAsync("special-chars-show", "!!!???", CancellationToken.None);
 
         // Assert
-        Guid.TryParse(result.PodcastId, out _).Should().BeTrue();
+        Guid.TryParseExact(result.PodcastId, "N", out _).Should().BeTrue();
     }
 }

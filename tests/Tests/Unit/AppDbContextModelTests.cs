@@ -17,7 +17,10 @@ public class AppDbContextModelTests
         // Arrange
         using var connection = new SqliteConnection("Data Source=:memory:");
         connection.Open();
-        var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlite(connection).Options;
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlite(connection)
+            .EnableServiceProviderCaching(false)
+            .Options;
         using var dbContext = new AppDbContext(options);
 
         // Act
