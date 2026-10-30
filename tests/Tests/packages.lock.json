@@ -129,21 +129,21 @@
       },
       "mu88.Shared.Testing": {
         "type": "Direct",
-        "requested": "[8.6.0, )",
-        "resolved": "8.6.0",
-        "contentHash": "mFajVlSR0SZEgd+ab2cQW5q0DmunUAubgZYoiTKPTKsR8uaGhCtOYRb/2zcSvfeZoCJ+OQhh4sqVUmZvEbp/og==",
+        "requested": "[8.6.1, )",
+        "resolved": "8.6.1",
+        "contentHash": "uok+rICQpMfYmyaJgWWS0gqfb+i4nnQvDZzyAHRNiGSVNOIJ0Hy5LKuozmoX4HNEP0LnUqjNjcYuyh7632DMBA==",
         "dependencies": {
           "CliWrap": "3.10.5",
           "Docker.DotNet": "3.125.15",
           "FluentAssertions": "8.11.0",
-          "FluentAssertions.Web.v8": "2.0.3",
+          "FluentAssertions.Web.v8": "3.0.0",
           "IDisposableAnalyzers": "4.0.8",
-          "Meziantou.Analyzer": "3.0.290",
+          "Meziantou.Analyzer": "3.0.299",
           "Microsoft.Playwright": "1.63.0",
           "NUnit": "5.0.0",
           "StyleCop.Analyzers": "1.1.118",
-          "Testcontainers": "4.15.0",
-          "Testcontainers.Playwright": "4.15.0"
+          "Testcontainers": "4.16.0",
+          "Testcontainers.Playwright": "4.16.0"
         }
       },
       "Npgsql": {
@@ -364,8 +364,8 @@
       },
       "Meziantou.Analyzer": {
         "type": "Transitive",
-        "resolved": "3.0.290",
-        "contentHash": "vdSXgMEPil67EFwkcicjSCMnB7TdhUNiR1Fjw1P8MN+UeX6yP8wTb7cNT20H/ejHuUxkrxQS1Rz4QcJuMLmCkA=="
+        "resolved": "3.0.299",
+        "contentHash": "3PWTsYZnFFs49xDk6Y8+qy1jWe80+j9EhgzHrWo94MM711JsbCBqRptBJHhZmaueEJs6WNspJd+apIEqwyyjqg=="
       },
       "Microsoft.ApplicationInsights": {
         "type": "Transitive",
