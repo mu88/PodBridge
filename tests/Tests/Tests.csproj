@@ -11,6 +11,10 @@
     <PackageReference Include="CliWrap" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="FluentAssertions.Web.v8" />
+    <!-- Direct test-only pin for GHSA-6527-9fp8-r4x6: vulnerable FileBufferingReadStream allocation
+         can exhaust memory on unauthenticated multipart requests. Remove once FluentAssertions.Web.v8/HttpMessageFormatter
+         resolves Microsoft.AspNetCore.WebUtilities 2.3.14 or later. -->
+    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
