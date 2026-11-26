@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFramework>net11.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
@@ -11,13 +11,11 @@
     <PackageReference Include="CliWrap" />
     <PackageReference Include="FluentAssertions" />
     <PackageReference Include="FluentAssertions.Web.v8" />
-    <!-- TEMP-PIN: GHSA-6527-9fp8-r4x6. Vulnerable FileBufferingReadStream allocation
-         can exhaust memory on unauthenticated multipart requests. Remove once FluentAssertions.Web.v8/HttpMessageFormatter
-         resolves Microsoft.AspNetCore.WebUtilities 2.3.14 or later. -->
-    <PackageReference Include="Microsoft.AspNetCore.WebUtilities" />
+    <!-- bUnit references 11.0 release candidates; these keep its ASP.NET Core dependencies stable. -->
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.Authentication" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
     <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
