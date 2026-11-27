@@ -21,7 +21,10 @@
       "logger.*",
       "Logger.*",
       "LogRefreshFailed"
-    ]
+    ],
+    "thresholds": {
+      "break": 1
+    }
   }
 }
 
